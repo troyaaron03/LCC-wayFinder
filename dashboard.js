@@ -23,6 +23,7 @@ let currentRole = "";
 let campusRooms = [];
 let campusFaculties = [];
 let currentPosition = null;
+let locationWatchId = null;
 let selectedMapPlaceId = "";
 const arrivalRecordedRoomIds = new Set();
 const arrivalRecordingPlaceIds = new Set();
@@ -165,6 +166,9 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden && cameraStream) stopCameraView("Camera stopped while the page is in the background.");
 });
 window.addEventListener("pagehide", () => stopCameraView());
+window.addEventListener("pagehide", () => {
+  if (locationWatchId !== null) navigator.geolocation.clearWatch(locationWatchId);
+});
 
 async function loadCampusData() {
   const results = await Promise.allSettled([
@@ -233,16 +237,17 @@ function updateMapPlaceDetails() {
 }
 
 async function recordMapUse(room) {
-  if (currentRole !== "student" || !currentStudentNumber) return;
-  await addDoc(collection(db, "transactions"), {
+  if (currentRole !== "student") return;
+  const transaction = {
     userId: currentUser.uid,
-    studentNumber: currentStudentNumber,
     roomId: room.id,
     roomNumber: String(room.roomNumber || ""),
     building: String(room.building || room.name || "Campus"),
     method: "directions",
     createdAt: serverTimestamp()
-  });
+  };
+  if (currentStudentNumber) transaction.studentNumber = currentStudentNumber;
+  await addDoc(collection(db, "transactions"), transaction);
 }
 
 function renderCampusMap() {
@@ -255,6 +260,7 @@ function renderCampusMap() {
   select.value = selectedMapPlaceId;
   select.onchange = () => {
     selectedMapPlaceId = select.value;
+    updateLocationSummary();
     updateMapPlaceDetails();
     updateCameraGuidance();
   };
@@ -266,6 +272,20 @@ function updateCampusMapLocation() {
   updateMapPlaceDetails();
   updateCameraGuidance();
 }
+
+function updateLocationSummary(accuracy = null) {
+  if (!currentPosition) return;
+  const place = selectedMapPlace();
+  const destination = placeCoordinates(place);
+  const distance = destination ? distanceInMeters(currentPosition, destination) : null;
+  const distanceText = distance === null
+    ? "Choose a mapped destination to see walking distance"
+    : `${distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`} to ${placeTitle(place)}`;
+  const accuracyText = accuracy === null ? "" : `About ${Math.round(accuracy)} m accuracy · `;
+  $("locationSummary").hidden = false;
+  $("locationSummary").innerHTML = `<span class="location-dot"></span><span>Current position</span><strong>${currentPosition.lat.toFixed(5)}, ${currentPosition.lng.toFixed(5)}</strong><span>${esc(distanceText)}</span><span class="muted-note">${accuracyText}Not saved to your account</span>`;
+}
+
 function handleDeviceOrientation(event) {
   if (Number.isFinite(event.webkitCompassHeading)) {
     cameraHeading = event.webkitCompassHeading;
@@ -358,7 +378,7 @@ function stopCameraView(message = "") {
 }
 
 async function recordCameraArrival(place) {
-  if (currentRole !== "student" || !currentStudentNumber || !currentUser ||
+  if (currentRole !== "student" || !currentUser ||
       !place || arrivalRecordedRoomIds.has(place.id) || arrivalRecordingPlaceIds.has(place.id)) {
     return;
   }
@@ -368,11 +388,11 @@ async function recordCameraArrival(place) {
   try {
     const transaction = {
       userId: currentUser.uid,
-      studentNumber: currentStudentNumber,
       building: String(place.building || place.location || place.name || "Campus"),
       method: "camera",
       createdAt: serverTimestamp()
     };
+    if (currentStudentNumber) transaction.studentNumber = currentStudentNumber;
     if (place.destinationType === "faculty") {
       transaction.facultyId = place.id;
       transaction.destinationName = String(place.name || placeTitle(place));
@@ -456,11 +476,11 @@ async function recognizeCameraSign(stream, session) {
       return;
     }
     if (recognizesRoomNumber(text, place) || recognizesDestinationName(text, place)) {
-      if (currentRole === "student" && currentStudentNumber) {
+      if (currentRole === "student") {
         $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Recording your arrival…`;
         await recordCameraArrival(place);
       } else {
-        $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Arrival records are available to student accounts with a registered student number.`;
+        $("recognitionStatus").textContent = "Camera arrival tracking is available to student accounts.";
       }
     } else {
       const target = place.destinationType === "room" && place.roomNumber
@@ -681,17 +701,23 @@ $("locateMe").addEventListener("click", () => {
     return;
   }
   const button = $("locateMe");
-  button.disabled = true;
-  message.textContent = "Requesting your location…";
-  navigator.geolocation.getCurrentPosition((position) => {
+  if (locationWatchId !== null) {
+    navigator.geolocation.clearWatch(locationWatchId);
+    locationWatchId = null;
+    button.textContent = "Use my location";
+    message.textContent = "Live location tracking stopped. Your last position remains on this device.";
+    return;
+  }
+
+  message.textContent = "Starting live location tracking…";
+  locationWatchId = navigator.geolocation.watchPosition((position) => {
     currentPosition = { lat: position.coords.latitude, lng: position.coords.longitude };
     const accuracy = Math.round(position.coords.accuracy);
-    message.textContent = `Location ready (about ${accuracy} m accuracy). Your coordinates are kept on this device.`;
-    $("locationSummary").hidden = false;
-    $("locationSummary").innerHTML = `<span class="location-dot"></span><span>Current position</span><strong>${currentPosition.lat.toFixed(5)}, ${currentPosition.lng.toFixed(5)}</strong><span class="muted-note">Not saved to your account</span>`;
+    message.textContent = `Live location tracking (about ${accuracy} m accuracy). Your coordinates stay on this device.`;
+    button.textContent = "Stop tracking";
+    updateLocationSummary(position.coords.accuracy);
     renderRooms();
     updateCampusMapLocation();
-    button.disabled = false;
   }, (error) => {
     const messages = {
       1: "Location permission was denied. Allow access in your browser settings to see nearby rooms.",
@@ -699,8 +725,13 @@ $("locateMe").addEventListener("click", () => {
       3: "The location request timed out. Please try again."
     };
     message.textContent = messages[error.code] || "Could not get your location. Please try again.";
-    button.disabled = false;
-  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    if (error.code === 1) {
+      navigator.geolocation.clearWatch(locationWatchId);
+      locationWatchId = null;
+      button.textContent = "Use my location";
+    }
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 });
+  button.textContent = "Stop tracking";
 });
 
 $("feedbackForm").addEventListener("submit", async (event) => {

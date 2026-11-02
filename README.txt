@@ -25,8 +25,8 @@ FIREBASE SETUP
 
 SIGN-IN
 Sign in with the campus email used to create the account. Student numbers are
-used for registration, account records, and student arrival tracking; they are
-not accepted as a login identifier.
+used for registration and account records; they are not accepted as a login
+identifier. Students can check in even when no student number is linked.
 
 ADMIN USER LIST TROUBLESHOOTING
 The admin User accounts page lists Firebase Authentication users through the
@@ -40,8 +40,8 @@ STUDENT ACCOUNTS
 Students register with an 8-digit student number, campus email, and a password
 of at least 8 characters containing at least one uppercase letter. Email
 verification is not required for sign-in. Students sign in with their campus
-email; the student number is linked privately to their account and used for
-arrival records.
+email; the student number is linked privately to their account and included in
+arrival records when available.
 
 Admins can assign student, visitor, or faculty roles. All three can use the map
 and request their device location; visitor and faculty accounts cannot create
@@ -66,11 +66,12 @@ ROOMS AND GPS DIRECTIONS
 Administrators can add a latitude and longitude to a room in Rooms & locations.
 Both coordinates are required together. Coordinates are optional; rooms without
 them remain available in the directory. Students can select Use my location to
-request a one-time browser location reading, see nearby rooms first, and open a
-Google Maps route. GPS requires the user's permission and a secure context (HTTPS
-or localhost). A user's location is held in page memory only and is not
-written to Firebase. It is included in a Google Maps link only if the user
-chooses to open directions.
+start live browser location tracking, see nearby rooms first, and open a Google
+Maps route. GPS requires the user's permission and a secure context (HTTPS
+or localhost). Use my location streams device position while tracking is active
+so the distance to the selected destination updates while walking. A user's
+location is held in page memory only and is not written to Firebase. It is
+included in a Google Maps link only if the user chooses to open directions.
 Faculty locations can also be given latitude and longitude in the faculty editor.
 Mapped faculties appear as map destinations and can use camera compass guidance;
 camera arrival check-ins remain limited to rooms.
@@ -89,6 +90,9 @@ destination arrivals are also recorded by name. Opening a Google Maps route
 records a map-use transaction and opens the feedback form. OCR is approximate
 and does not prove physical location. Camera frames are processed on the device
 and are not recorded or uploaded.
+Use my location starts live GPS updates so the distance to the selected
+destination updates while walking. Student camera arrivals can be recorded
+without a student number; available student numbers are included when present.
 
 Camera access and OCR need an internet connection to load the recognition
 library and HTTPS or localhost for camera access. Students can still use room

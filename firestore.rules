@@ -88,7 +88,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student'
         && request.resource.data.keys().hasOnly(['userId', 'studentNumber', 'roomId', 'roomNumber', 'facultyId', 'destinationName', 'building', 'method', 'createdAt'])
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.studentNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentNumber
+        && (
+          (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['studentNumber'])
+            && !request.resource.data.keys().hasAny(['studentNumber']))
+          || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.keys().hasAny(['studentNumber'])
+            && request.resource.data.studentNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentNumber)
+        )
         && request.resource.data.building is string
         && request.resource.data.method in ['camera', 'directions']
         && request.resource.data.createdAt == request.time
