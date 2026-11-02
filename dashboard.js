@@ -240,6 +240,7 @@ async function recordMapUse(room) {
   if (currentRole !== "student") return;
   const transaction = {
     userId: currentUser.uid,
+    accountName: currentUser.displayName || currentUser.email || "Student",
     roomId: room.id,
     roomNumber: String(room.roomNumber || ""),
     building: String(room.building || room.name || "Campus"),
@@ -388,6 +389,7 @@ async function recordCameraArrival(place) {
   try {
     const transaction = {
       userId: currentUser.uid,
+      accountName: currentUser.displayName || currentUser.email || "Student",
       building: String(place.building || place.location || place.name || "Campus"),
       method: "camera",
       createdAt: serverTimestamp()
@@ -448,10 +450,16 @@ function recognizesRoomNumber(text, room) {
 function recognizesDestinationName(text, place) {
   const normalize = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const recognizedText = ` ${normalize(text)} `;
-  const names = [place.name]
+  const names = [place.name, placeTitle(place), place.destinationType === "faculty" ? place.location : ""]
     .map(normalize)
     .filter((name) => name.length >= 4);
   return names.some((name) => recognizedText.includes(` ${name} `));
+}
+
+function recognizedDestinations(text) {
+  return mapDestinations().filter((place) =>
+    recognizesRoomNumber(text, place) || recognizesDestinationName(text, place)
+  );
 }
 
 async function recognizeCameraSign(stream, session) {
@@ -469,27 +477,38 @@ async function recognizeCameraSign(stream, session) {
     if (session !== recognitionSession || cameraStream !== stream) return;
 
     const text = result.data.text || "";
-    const place = selectedMapPlace();
+    const destinations = recognizedDestinations(text);
+    const selectedPlace = selectedMapPlace();
+    const selectedMatch = destinations.find((place) => place.destinationId === selectedPlace?.destinationId);
+    const place = selectedMatch || (destinations.length === 1 ? destinations[0] : null);
+    if (!place && destinations.length > 1) {
+      $("recognitionStatus").textContent = `More than one destination matched (${destinations.map(placeTitle).join(", ")}). Select the correct one from Find a room or location.`;
+      return;
+    }
     if (!place) {
-      $("recognitionStatus").textContent = "Choose a destination first to use camera guidance.";
+      if (!selectedPlace) {
+        $("recognitionStatus").textContent = "Aim the camera at a room number or faculty name to detect its destination.";
+        return;
+      }
+      if (arrivalRecordedRoomIds.has(selectedPlace.id)) {
+        $("recognitionStatus").textContent = `Arrival for ${placeTitle(selectedPlace)} is already recorded.`;
+        return;
+      }
+      const target = selectedPlace.destinationType === "room" && selectedPlace.roomNumber
+        ? `room number ${selectedPlace.roomNumber} or destination name ${placeTitle(selectedPlace)}`
+        : `destination name ${placeTitle(selectedPlace)}`;
+      $("recognitionStatus").textContent = `Looking for ${target}. Aim at the destination sign and move closer.`;
       return;
     }
     if (arrivalRecordedRoomIds.has(place.id)) {
       $("recognitionStatus").textContent = `Arrival for ${placeTitle(place)} is already recorded.`;
       return;
     }
-    if (recognizesRoomNumber(text, place) || recognizesDestinationName(text, place)) {
-      if (currentRole === "student") {
-        $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Recording your arrival…`;
-        await recordCameraArrival(place);
-      } else {
-        $("recognitionStatus").textContent = "Camera arrival tracking is available to student accounts.";
-      }
+    if (currentRole === "student") {
+      $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Recording your arrival…`;
+      await recordCameraArrival(place);
     } else {
-      const target = place.destinationType === "room" && place.roomNumber
-        ? `room number ${place.roomNumber} or destination name ${placeTitle(place)}`
-        : `destination name ${placeTitle(place)}`;
-      $("recognitionStatus").textContent = `Looking for ${target}. Aim at the destination sign and move closer.`;
+      $("recognitionStatus").textContent = "Camera arrival tracking is available to student accounts.";
     }
   } catch (error) {
     if (session === recognitionSession && cameraStream === stream) {

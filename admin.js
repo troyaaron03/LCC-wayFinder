@@ -856,6 +856,7 @@ async function loadTransactions() {
       return `<article class="card">
         <span class="card-kicker">${data.method === "camera" ? "ARRIVAL" : "MAP DIRECTIONS"}</span>
         <h3>${esc(data.building || "Campus")} · ${esc(data.destinationName || data.roomNumber || "Room unavailable")}</h3>
+        <p><strong>Account:</strong> ${esc(data.accountName || "Unavailable")}</p>
         <p><strong>Student number:</strong> ${esc(data.studentNumber || "Unavailable")}</p>
         <p><strong>Recorded:</strong> ${esc(date)}</p>
       </article>`;
