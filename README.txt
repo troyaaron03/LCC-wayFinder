@@ -13,6 +13,9 @@ FIREBASE SETUP
    account's users/{UID} document role to superadmin in the Firebase console.
 5. Publish the updated Firestore rules first:
    firebase deploy --only firestore:rules --project campus-navigation-system-4292f
+   The signed-in admin and superadmin roles can read destination transactions.
+   If the admin page reports "Missing or insufficient permissions", make sure
+   the latest rules are deployed to the same Firebase project used by the app.
 6. Deploy the student-number and account-role Cloud Functions:
    firebase deploy --only functions --project campus-navigation-system-4292f
    Enter the Firebase Web API key when prompted for FIREBASE_WEB_API_KEY. This
