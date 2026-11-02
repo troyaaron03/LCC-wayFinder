@@ -438,7 +438,10 @@ function recognizesRoomNumber(text, room) {
     .replace(/^(room|rm|no\.?)\s*/i, "")
     .replace(/[^a-z0-9]/gi, "");
   if (!expected) return false;
-  const pattern = [...expected].join("[^a-z0-9]*");
+  const ocrAlternatives = { "0": "[0o]", "1": "[1iIl|]" };
+  const pattern = [...expected]
+    .map((character) => `${ocrAlternatives[character] || character}[^a-z0-9]{0,3}`)
+    .join("");
   return new RegExp(`(^|[^a-z0-9])${pattern}(?=$|[^a-z0-9])`, "i").test(text);
 }
 
