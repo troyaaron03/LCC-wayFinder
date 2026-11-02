@@ -82,12 +82,13 @@ MAP DIRECTIONS, ARRIVALS, AND FEEDBACK
 Students can choose a destination from the room directory, request their
 current location, and open available routes in Google Maps. Opening a route
 shows the feedback form in Campus Wayfinder. Students can also select Use
-camera; on-device OCR checks for the selected room number. After OCR finds a
-possible match, the student must confirm they have arrived. This creates a
-destination visit record that admins can review. Opening a Google Maps route
-also records a map-use transaction. Both actions open the feedback form.
-OCR is approximate and confirmation is not proof of physical location. Camera
-frames are processed on the device and are not recorded or uploaded.
+camera; on-device OCR checks for the selected room number or destination name.
+When either is recognized, the student's arrival is recorded automatically.
+This creates a destination visit record that admins can review. Faculty
+destination arrivals are also recorded by name. Opening a Google Maps route
+records a map-use transaction and opens the feedback form. OCR is approximate
+and does not prove physical location. Camera frames are processed on the device
+and are not recorded or uploaded.
 
 Camera access and OCR need an internet connection to load the recognition
 library and HTTPS or localhost for camera access. Students can still use room

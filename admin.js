@@ -854,8 +854,8 @@ async function loadTransactions() {
       const data = item.data();
       const date = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "Date unavailable";
       return `<article class="card">
-        <span class="card-kicker">${data.method === "camera" ? "CONFIRMED ARRIVAL" : "MAP DIRECTIONS"}</span>
-        <h3>${esc(data.building || "Campus")} · ${esc(data.roomNumber || "Room unavailable")}</h3>
+        <span class="card-kicker">${data.method === "camera" ? "ARRIVAL" : "MAP DIRECTIONS"}</span>
+        <h3>${esc(data.building || "Campus")} · ${esc(data.destinationName || data.roomNumber || "Room unavailable")}</h3>
         <p><strong>Student number:</strong> ${esc(data.studentNumber || "Unavailable")}</p>
         <p><strong>Recorded:</strong> ${esc(date)}</p>
       </article>`;

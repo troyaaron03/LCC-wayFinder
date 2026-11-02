@@ -86,17 +86,32 @@ service cloud.firestore {
         && isSignedInUser()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student'
-        && request.resource.data.keys().hasOnly(['userId', 'studentNumber', 'roomId', 'roomNumber', 'building', 'method', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['userId', 'studentNumber', 'roomId', 'roomNumber', 'facultyId', 'destinationName', 'building', 'method', 'createdAt'])
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.studentNumber == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentNumber
-        && request.resource.data.roomId is string
-        && request.resource.data.roomNumber is string
         && request.resource.data.building is string
         && request.resource.data.method in ['camera', 'directions']
         && request.resource.data.createdAt == request.time
-        && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomId))
-        && (request.resource.data.method != 'camera'
-          || request.resource.data.roomNumber == get(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.roomNumber);
+        && (
+          (request.resource.data.method == 'directions'
+            && request.resource.data.keys().hasAll(['roomId', 'roomNumber'])
+            && request.resource.data.roomId is string
+            && request.resource.data.roomNumber is string
+            && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)))
+          || (request.resource.data.method == 'camera'
+            && request.resource.data.keys().hasAll(['roomId', 'roomNumber'])
+            && request.resource.data.roomId is string
+            && request.resource.data.roomNumber is string
+            && exists(/databases/$(database)/documents/rooms/$(request.resource.data.roomId))
+            && request.resource.data.roomNumber == get(/databases/$(database)/documents/rooms/$(request.resource.data.roomId)).data.roomNumber)
+          || (request.resource.data.method == 'camera'
+            && request.resource.data.keys().hasAll(['facultyId', 'destinationName'])
+            && request.resource.data.facultyId is string
+            && request.resource.data.destinationName is string
+            && request.resource.data.destinationName.size() > 0
+            && exists(/databases/$(database)/documents/faculties/$(request.resource.data.facultyId))
+            && request.resource.data.destinationName == get(/databases/$(database)/documents/faculties/$(request.resource.data.facultyId)).data.name)
+        );
       allow read: if isAdmin();
       allow update, delete: if false;
     }

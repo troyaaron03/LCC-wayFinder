@@ -51,7 +51,7 @@
       <div id="cameraView" class="camera-view" hidden>
         <video id="cameraVideo" autoplay playsinline muted aria-label="Live camera preview"></video>
         <div class="camera-overlay">
-          <p id="recognitionStatus" class="recognition-status" role="status" aria-live="polite">Choose a destination for camera guidance. Room signs can also be checked for arrival.</p>
+          <p id="recognitionStatus" class="recognition-status" role="status" aria-live="polite">Choose a destination. Arrival is recorded automatically when its room number or name is recognized.</p>
           <div class="camera-crosshair" aria-hidden="true"></div>
           <div id="cameraMarker" class="camera-marker" hidden>
             <span class="camera-marker-arrow" aria-hidden="true">▲</span>
@@ -59,7 +59,6 @@
           </div>
           <p id="cameraStatus" class="camera-status" role="status" aria-live="polite">Camera frames are checked on this device only; they are not recorded or uploaded.</p>
         </div>
-        <button id="confirmArrival" class="camera-arrival-button" type="button" hidden>Confirm arrival</button>
       </div>
       <div class="section-heading subheading"><div><h3>Mapped rooms</h3><p>Open directions in Google Maps when a room has coordinates.</p></div></div>
       <div id="mapList" class="cards"><p class="empty-state">Loading mapped rooms…</p></div>

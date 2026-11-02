@@ -24,8 +24,8 @@ let campusRooms = [];
 let campusFaculties = [];
 let currentPosition = null;
 let selectedMapPlaceId = "";
-let pendingArrivalRoomId = "";
 const arrivalRecordedRoomIds = new Set();
+const arrivalRecordingPlaceIds = new Set();
 let cameraStream = null;
 let cameraHeading = null;
 let cameraOrientationEnabled = false;
@@ -161,7 +161,6 @@ $("cameraToggle").addEventListener("click", () => {
   if (cameraStream) stopCameraView();
   else startCameraView();
 });
-$("confirmArrival").addEventListener("click", confirmCameraArrival);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && cameraStream) stopCameraView("Camera stopped while the page is in the background.");
 });
@@ -256,8 +255,6 @@ function renderCampusMap() {
   select.value = selectedMapPlaceId;
   select.onchange = () => {
     selectedMapPlaceId = select.value;
-    pendingArrivalRoomId = "";
-    $("confirmArrival").hidden = true;
     updateMapPlaceDetails();
     updateCameraGuidance();
   };
@@ -357,44 +354,42 @@ function stopCameraView(message = "") {
   $("cameraView").hidden = true;
   $("cameraToggle").textContent = "Use camera";
   $("cameraMarker").hidden = true;
-  $("confirmArrival").hidden = true;
-  pendingArrivalRoomId = "";
   if (message) $("cameraStatus").textContent = message;
 }
 
-async function confirmCameraArrival() {
-  const room = selectedMapPlace();
-  const button = $("confirmArrival");
-  if (room?.destinationType !== "room" || currentRole !== "student" || !currentStudentNumber ||
-      !currentUser || !room || pendingArrivalRoomId !== room.id || arrivalRecordedRoomIds.has(room.id)) {
+async function recordCameraArrival(place) {
+  if (currentRole !== "student" || !currentStudentNumber || !currentUser ||
+      !place || arrivalRecordedRoomIds.has(place.id) || arrivalRecordingPlaceIds.has(place.id)) {
     return;
   }
 
-  button.disabled = true;
-  $("cameraStatus").textContent = "Recording your arrival…";
+  arrivalRecordingPlaceIds.add(place.id);
+  $("cameraStatus").textContent = `Recording arrival at ${placeTitle(place)}…`;
   try {
-    await addDoc(collection(db, "transactions"), {
+    const transaction = {
       userId: currentUser.uid,
       studentNumber: currentStudentNumber,
-      roomId: room.id,
-      roomNumber: String(room.roomNumber),
-      building: String(room.building || room.name || "Campus"),
+      building: String(place.building || place.location || place.name || "Campus"),
       method: "camera",
       createdAt: serverTimestamp()
-    });
-    arrivalRecordedRoomIds.add(room.id);
-    pendingArrivalRoomId = "";
-    $("recognitionStatus").textContent = `Arrival recorded for ${placeTitle(room)}. Thank you for checking in.`;
+    };
+    if (place.destinationType === "faculty") {
+      transaction.facultyId = place.id;
+      transaction.destinationName = String(place.name || placeTitle(place));
+    } else {
+      transaction.roomId = place.id;
+      transaction.roomNumber = String(place.roomNumber || "");
+    }
+    await addDoc(collection(db, "transactions"), transaction);
+    arrivalRecordedRoomIds.add(place.id);
+    $("recognitionStatus").textContent = `Arrival recorded automatically at ${placeTitle(place)}.`;
     $("cameraStatus").textContent = "Your destination visit has been recorded.";
     $("feedbackPrompt").hidden = false;
-    openSection("evaluation");
-    $("rating").focus();
   } catch (error) {
     console.error("Could not record destination arrival:", error);
-    $("cameraStatus").textContent = "Could not record your arrival. Check your connection and try again.";
+    $("cameraStatus").textContent = `Could not record arrival at ${placeTitle(place)}. Check your connection and try again.`;
   } finally {
-    button.disabled = false;
-    button.hidden = true;
+    arrivalRecordingPlaceIds.delete(place.id);
   }
 }
 
@@ -427,6 +422,15 @@ function recognizesRoomNumber(text, room) {
   return new RegExp(`(^|[^a-z0-9])${pattern}(?=$|[^a-z0-9])`, "i").test(text);
 }
 
+function recognizesDestinationName(text, place) {
+  const normalize = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const recognizedText = ` ${normalize(text)} `;
+  const names = [place.name]
+    .map(normalize)
+    .filter((name) => name.length >= 4);
+  return names.some((name) => recognizedText.includes(` ${name} `));
+}
+
 async function recognizeCameraSign(stream, session) {
   if (!recognitionWorker || recognitionBusy || cameraStream !== stream) return;
   const video = $("cameraVideo");
@@ -444,36 +448,25 @@ async function recognizeCameraSign(stream, session) {
     const text = result.data.text || "";
     const place = selectedMapPlace();
     if (!place) {
-      $("confirmArrival").hidden = true;
       $("recognitionStatus").textContent = "Choose a destination first to use camera guidance.";
       return;
     }
-    if (place.destinationType === "faculty") {
-      $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = "Camera guidance is available for this faculty location. Follow the direction marker.";
-      return;
-    }
     if (arrivalRecordedRoomIds.has(place.id)) {
-      $("confirmArrival").hidden = true;
       $("recognitionStatus").textContent = `Arrival for ${placeTitle(place)} is already recorded.`;
       return;
     }
-    if (!place.roomNumber) {
-      $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = "This destination has no room number to check. Ask an administrator to add one.";
-      return;
-    }
-    if (recognizesRoomNumber(text, place)) {
-      pendingArrivalRoomId = place.id;
-      $("confirmArrival").textContent = `Confirm arrival at ${placeTitle(place)}`;
-      $("confirmArrival").hidden = currentRole !== "student" || !currentStudentNumber;
-      $("recognitionStatus").textContent = currentRole === "student" && currentStudentNumber
-        ? `Possible match for ${placeTitle(place)}. Verify you are there, then confirm arrival.`
-        : "Room number recognized. Arrival tracking is available to student accounts with a registered student number.";
+    if (recognizesRoomNumber(text, place) || recognizesDestinationName(text, place)) {
+      if (currentRole === "student" && currentStudentNumber) {
+        $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Recording your arrival…`;
+        await recordCameraArrival(place);
+      } else {
+        $("recognitionStatus").textContent = `Recognized ${placeTitle(place)}. Arrival records are available to student accounts with a registered student number.`;
+      }
     } else {
-      pendingArrivalRoomId = "";
-      $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = `Looking for room number ${place.roomNumber}. Aim at the destination sign and move closer.`;
+      const target = place.destinationType === "room" && place.roomNumber
+        ? `room number ${place.roomNumber} or destination name ${placeTitle(place)}`
+        : `destination name ${placeTitle(place)}`;
+      $("recognitionStatus").textContent = `Looking for ${target}. Aim at the destination sign and move closer.`;
     }
   } catch (error) {
     if (session === recognitionSession && cameraStream === stream) {
