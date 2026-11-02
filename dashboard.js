@@ -240,7 +240,7 @@ async function recordMapUse(room) {
   if (currentRole !== "student") return;
   const transaction = {
     userId: currentUser.uid,
-    accountName: currentUser.displayName || currentUser.email || "Student",
+    accountName: currentUser.email || currentUser.displayName || "Student",
     roomId: room.id,
     roomNumber: String(room.roomNumber || ""),
     building: String(room.building || room.name || "Campus"),
@@ -389,7 +389,7 @@ async function recordCameraArrival(place) {
   try {
     const transaction = {
       userId: currentUser.uid,
-      accountName: currentUser.displayName || currentUser.email || "Student",
+      accountName: currentUser.email || currentUser.displayName || "Student",
       building: String(place.building || place.location || place.name || "Campus"),
       method: "camera",
       createdAt: serverTimestamp()
@@ -777,6 +777,7 @@ $("feedbackForm").addEventListener("submit", async (event) => {
       rating,
       comment,
       userId: currentUser.uid,
+      accountName: currentUser.email || currentUser.displayName || "Student",
       createdAt: serverTimestamp()
     });
     $("feedbackForm").reset();

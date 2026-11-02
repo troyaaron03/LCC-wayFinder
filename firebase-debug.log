@@ -1,0 +1,50 @@
+[debug] [2026-11-02T06:44:18.717Z] ----------------------------------------------------------------------
+[debug] [2026-11-02T06:44:18.723Z] Command:       C:\Users\Troyc\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.20.0-win-x64\node.exe C:\Users\Troyc\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js firestore:delete transactions --recursive --force --project campus-navigation-system-4292f --debug
+[debug] [2026-11-02T06:44:18.724Z] CLI Version:   15.34.2
+[debug] [2026-11-02T06:44:18.725Z] Platform:      win32
+[debug] [2026-11-02T06:44:18.725Z] Node Version:  v24.20.0
+[debug] [2026-11-02T06:44:18.726Z] Detected Agent: github_copilot_vscode_agent
+[debug] [2026-11-02T06:44:18.726Z] Time:          Mon Nov 02 2026 14:44:18 GMT+0800 (Philippine Standard Time)
+[debug] [2026-11-02T06:44:18.727Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-11-02T06:44:21.034Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-11-02T06:44:21.035Z] > authorizing via signed-in user (admindefault54@gmail.com)
+[debug] [2026-11-02T06:44:21.035Z] [iam] checking project campus-navigation-system-4292f for permissions ["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]
+[debug] [2026-11-02T06:44:21.060Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:21.060Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:21.063Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions [none]
+[debug] [2026-11-02T06:44:21.064Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions  x-goog-user-project=campus-navigation-system-4292f
+[debug] [2026-11-02T06:44:21.064Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions {"permissions":["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]}
+[debug] [2026-11-02T06:44:19.153Z] ----------------------------------------------------------------------
+[debug] [2026-11-02T06:44:19.159Z] Command:       C:\Users\Troyc\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.LTS_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v24.20.0-win-x64\node.exe C:\Users\Troyc\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js firestore:delete feedback --recursive --force --project campus-navigation-system-4292f --debug
+[debug] [2026-11-02T06:44:19.160Z] CLI Version:   15.34.2
+[debug] [2026-11-02T06:44:19.161Z] Platform:      win32
+[debug] [2026-11-02T06:44:19.161Z] Node Version:  v24.20.0
+[debug] [2026-11-02T06:44:19.162Z] Detected Agent: github_copilot_vscode_agent
+[debug] [2026-11-02T06:44:19.163Z] Time:          Mon Nov 02 2026 14:44:19 GMT+0800 (Philippine Standard Time)
+[debug] [2026-11-02T06:44:19.163Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-11-02T06:44:21.554Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-11-02T06:44:21.555Z] > authorizing via signed-in user (admindefault54@gmail.com)
+[debug] [2026-11-02T06:44:21.555Z] [iam] checking project campus-navigation-system-4292f for permissions ["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]
+[debug] [2026-11-02T06:44:21.591Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:21.591Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:21.596Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions [none]
+[debug] [2026-11-02T06:44:21.597Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions  x-goog-user-project=campus-navigation-system-4292f
+[debug] [2026-11-02T06:44:21.598Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions {"permissions":["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]}
+[debug] [2026-11-02T06:44:22.338Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions 200
+[debug] [2026-11-02T06:44:22.339Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions {"permissions":["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]}
+[debug] [2026-11-02T06:44:22.347Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:22.348Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:22.349Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery [none]
+[debug] [2026-11-02T06:44:22.349Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery {"structuredQuery":{"where":{"compositeFilter":{"op":"AND","filters":[{"fieldFilter":{"field":{"fieldPath":"__name__"},"op":"GREATER_THAN_OR_EQUAL","value":{"referenceValue":"projects/campus-navigation-system-4292f/databases/(default)/documents/transactions/__id-9223372036854775808__"}}},{"fieldFilter":{"field":{"fieldPath":"__name__"},"op":"LESS_THAN","value":{"referenceValue":"projects/campus-navigation-system-4292f/databases/(default)/documents/transactions\u0000/__id-9223372036854775808__"}}}]}},"limit":7500,"from":[{"allDescendants":true}],"select":{"fields":[{"fieldPath":"__name__"}]},"orderBy":[{"field":{"fieldPath":"__name__"}}]}}
+[debug] [2026-11-02T06:44:22.598Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery 200
+[debug] [2026-11-02T06:44:22.599Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery [{"readTime":"2026-11-02T06:44:22.678371Z"}]
+[debug] [2026-11-02T06:44:22.769Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions 200
+[debug] [2026-11-02T06:44:22.770Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/campus-navigation-system-4292f:testIamPermissions {"permissions":["datastore.entities.delete","datastore.entities.list","firebase.projects.get"]}
+[debug] [2026-11-02T06:44:22.780Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:22.781Z] Checked if tokens are valid: true, expires at: 1793604994564
+[debug] [2026-11-02T06:44:22.782Z] >>> [apiv2][query] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery [none]
+[debug] [2026-11-02T06:44:22.782Z] >>> [apiv2][body] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery {"structuredQuery":{"where":{"compositeFilter":{"op":"AND","filters":[{"fieldFilter":{"field":{"fieldPath":"__name__"},"op":"GREATER_THAN_OR_EQUAL","value":{"referenceValue":"projects/campus-navigation-system-4292f/databases/(default)/documents/feedback/__id-9223372036854775808__"}}},{"fieldFilter":{"field":{"fieldPath":"__name__"},"op":"LESS_THAN","value":{"referenceValue":"projects/campus-navigation-system-4292f/databases/(default)/documents/feedback\u0000/__id-9223372036854775808__"}}}]}},"limit":7500,"from":[{"allDescendants":true}],"select":{"fields":[{"fieldPath":"__name__"}]},"orderBy":[{"field":{"fieldPath":"__name__"}}]}}
+[debug] [2026-11-02T06:44:23.294Z] <<< [apiv2][status] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery 200
+[debug] [2026-11-02T06:44:23.295Z] <<< [apiv2][body] POST https://firestore.googleapis.com/v1/projects/campus-navigation-system-4292f/databases/(default)/documents:runQuery [{"readTime":"2026-11-02T06:44:23.407592Z"}]

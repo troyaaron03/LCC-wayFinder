@@ -70,7 +70,11 @@ service cloud.firestore {
       allow create: if request.auth != null
         && isSignedInUser()
         && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['rating', 'comment', 'userId', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['rating', 'comment', 'userId', 'accountName', 'createdAt'])
+        && request.resource.data.keys().hasAll(['rating', 'comment', 'userId', 'accountName', 'createdAt'])
+        && request.resource.data.accountName is string
+        && (request.resource.data.accountName == request.auth.token.email
+          || request.resource.data.accountName == request.auth.token.get('name', ''))
         && request.resource.data.rating is int
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5

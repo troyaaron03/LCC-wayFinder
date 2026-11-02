@@ -824,8 +824,8 @@ async function loadFeedback() {
           </p>
 
           <p>
-            <strong>Student ID:</strong>
-            ${esc(data.userId || "Unavailable")}
+            <strong>Account:</strong>
+            ${esc(data.accountName || data.userEmail || data.userId || "Unavailable")}
           </p>
         </article>
       `;
