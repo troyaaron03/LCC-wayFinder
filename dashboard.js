@@ -1,9 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, serverTimestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getFunctions } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { defaultRoomCoordinates } from "./campus-locations.js";
-import { linkStudentNumber } from "./student-account.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCDuxFyTm3pYIsrO5i5ivTKZyM4SZYnpqM",
@@ -18,14 +16,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const functions = getFunctions(app);
 const $ = (id) => document.getElementById(id);
 let currentUser = null;
 let currentStudentNumber = "";
 let currentRole = "";
 let campusRooms = [];
+let campusFaculties = [];
 let currentPosition = null;
-let selectedMapRoomId = "";
+let selectedMapPlaceId = "";
 let pendingArrivalRoomId = "";
 const arrivalRecordedRoomIds = new Set();
 let cameraStream = null;
@@ -52,24 +50,26 @@ function safeHttpUrl(value) {
   }
 }
 
-function roomCoordinates(room) {
-  if (!room) {
-    return null;
+function placeCoordinates(place) {
+  if (!place) return null;
+  if (place.destinationType !== "faculty" &&
+      (place.latitude === null || place.latitude === undefined || place.latitude === "" ||
+       place.longitude === null || place.longitude === undefined || place.longitude === "")) {
+    return defaultRoomCoordinates(place);
   }
-  if (room.latitude === null || room.latitude === undefined || room.latitude === "" ||
-      room.longitude === null || room.longitude === undefined || room.longitude === "") {
-    return defaultRoomCoordinates(room);
-  }
-  const lat = Number(room.latitude);
-  const lng = Number(room.longitude);
+  if (place.latitude === null || place.latitude === undefined || place.latitude === "" ||
+      place.longitude === null || place.longitude === undefined || place.longitude === "") return null;
+  const lat = Number(place.latitude);
+  const lng = Number(place.longitude);
   return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
     ? { lat, lng }
     : null;
 }
 
-function roomTitle(room) {
-  const number = String(room.roomNumber || "").trim();
-  if (!number) return room.name || "Campus space";
+function placeTitle(place) {
+  if (place.destinationType === "faculty") return place.name || "Faculty location";
+  const number = String(place.roomNumber || "").trim();
+  if (!number) return place.name || "Campus space";
   return /^room\b/i.test(number) ? number : `Room ${number}`;
 }
 
@@ -133,70 +133,17 @@ onAuthStateChanged(auth, async (user) => {
   try {
     const profile = await getDoc(doc(db, "users", user.uid));
     currentRole = profile.exists() ? profile.data().role : "student";
-    if (!["student", "visitor"].includes(currentRole)) {
-      throw new Error("Student profile not found or invalid.");
+    if (!["student", "visitor", "faculty"].includes(currentRole)) {
+      throw new Error("Campus profile not found or invalid.");
     }
-    currentStudentNumber = String(profile.data()?.studentNumber || "") ||
-      localStorage.getItem(`pendingStudentNumber:${user.uid}`) || "";
-    if (!profile.exists()) {
-      showStudentSetup("This account needs its student number linked before arrival tracking is available.");
-    } else if (currentRole === "student" && !currentStudentNumber) {
-      showStudentSetup("Add your student number to enable arrival tracking.");
-    } else if (currentRole === "visitor") {
-      $("accountNoticeText").textContent = "Visitor access is read-only. Destination arrival tracking is available to student accounts.";
-      $("accountNotice").hidden = false;
-    }
-    $("userEmail").textContent = `${currentStudentNumber ? `${currentStudentNumber} · ` : ""}${user.email || ""}`;
-    const accountNotice = sessionStorage.getItem("studentNumberLinkNotice");
-    if (accountNotice && currentRole === "student") {
-      showStudentSetup(accountNotice);
-      $("accountNotice").hidden = false;
-      sessionStorage.removeItem("studentNumberLinkNotice");
-    }
+    currentStudentNumber = profile.exists() ? String(profile.data().studentNumber || "") : "";
+    $("userEmail").textContent = user.email || "";
     await loadCampusData();
   } catch (error) {
-    console.error("Could not load student profile:", error);
-    $("locationMessage").textContent = "Could not verify your student account. Please sign in again or contact the administrator.";
+    console.error("Could not load campus profile:", error);
+    $("locationMessage").textContent = "Could not verify your campus account. Please sign in again or contact the administrator.";
     await signOut(auth);
     location.href = "index.html";
-  }
-});
-
-function showStudentSetup(message) {
-  $("accountNoticeText").textContent = message;
-  $("accountStudentNumber").value =
-    localStorage.getItem(`pendingStudentNumber:${currentUser.uid}`) || "";
-  $("accountSetupForm").hidden = false;
-  $("accountNotice").hidden = false;
-}
-
-$("accountSetupForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const number = $("accountStudentNumber").value.trim();
-  const status = $("accountSetupMessage");
-  if (!/^\d{8}$/.test(number)) {
-    status.textContent = "Enter your 8-digit student number.";
-    return;
-  }
-  const button = $("accountSetupForm").querySelector("button");
-  button.disabled = true;
-  status.textContent = "Linking your student number…";
-  try {
-    await linkStudentNumber(db, functions, currentUser, number);
-    currentStudentNumber = number;
-    $("userEmail").textContent = `${number} · ${currentUser.email || ""}`;
-    localStorage.removeItem(`pendingStudentNumber:${currentUser.uid}`);
-    sessionStorage.removeItem("studentNumberLinkNotice");
-    $("accountNotice").hidden = true;
-  } catch (error) {
-    console.error("Could not link student number:", error);
-    status.textContent = error.code === "functions/already-exists"
-      ? "That number is linked to another account. Contact the administrator to resolve it."
-      : error.code === "permission-denied"
-        ? "The account setup rules are not published yet. Please ask the administrator to update Firebase rules."
-        : "Could not link that number. Check it and try again, or contact the administrator.";
-  } finally {
-    button.disabled = false;
   }
 });
 
@@ -229,12 +176,23 @@ async function loadCampusData() {
 
   const [facultiesResult, roomsResult, qrResult] = results;
   if (facultiesResult.status === "fulfilled") {
+    campusFaculties = facultiesResult.value.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+      destinationId: `faculty:${item.id}`,
+      destinationType: "faculty"
+    }));
     renderFaculties(facultiesResult.value);
   } else {
     renderLoadError("facultyList", "Could not load faculties", facultiesResult.reason);
   }
   if (roomsResult.status === "fulfilled") {
-    campusRooms = roomsResult.value.docs.map((item) => ({ id: item.id, ...item.data() }));
+    campusRooms = roomsResult.value.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+      destinationId: `room:${item.id}`,
+      destinationType: "room"
+    }));
     renderRooms();
     renderCampusMap();
   } else {
@@ -250,24 +208,29 @@ async function loadCampusData() {
   }
 }
 
-function selectedMapRoom() {
-  return campusRooms.find((room) => room.id === selectedMapRoomId) || null;
+function mapDestinations() {
+  return [...campusRooms, ...campusFaculties];
+}
+
+function selectedMapPlace() {
+  return mapDestinations().find((place) => place.destinationId === selectedMapPlaceId) || null;
 }
 
 function updateMapPlaceDetails() {
   const details = $("mapPlaceDetails");
-  const room = selectedMapRoom();
-  if (!room) {
+  const place = selectedMapPlace();
+  if (!place) {
     details.innerHTML = '<span class="card-kicker">CAMPUS DIRECTORY</span><h3>Choose a destination</h3><p>Select a room above to view its details and available directions.</p>';
     return;
   }
 
-  const coordinates = roomCoordinates(room);
-  const direction = coordinates ? directionsUrl(coordinates, currentPosition) : safeHttpUrl(room.mapLink);
-  details.innerHTML = `<span class="card-kicker">${esc(room.building || "CAMPUS")}</span>
-    <h3>${esc(roomTitle(room))}</h3>
-    <p>${esc(room.description || room.roomType || "Campus room")}${room.floor ? ` · ${esc(room.floor)}` : ""}</p>
-    ${direction ? `<a class="text-link" data-map-directions data-room-id="${esc(room.id)}" href="${esc(direction)}" target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>` : '<p class="muted-note">Directions are not available for this location yet.</p>'}`;
+  const coordinates = placeCoordinates(place);
+  const direction = coordinates ? directionsUrl(coordinates, currentPosition) : safeHttpUrl(place.mapLink);
+  const roomTracking = place.destinationType === "room" ? `data-room-id="${esc(place.id)}"` : "";
+  details.innerHTML = `<span class="card-kicker">${esc(place.building || place.location || "CAMPUS")}</span>
+    <h3>${esc(placeTitle(place))}</h3>
+    <p>${esc(place.description || place.roomType || place.location || (place.destinationType === "faculty" ? "Faculty location" : "Campus room"))}${place.floor ? ` · ${esc(place.floor)}` : ""}</p>
+    ${direction ? `<a class="text-link" data-map-directions ${roomTracking} href="${esc(direction)}" target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>` : '<p class="muted-note">Directions are not available for this location yet.</p>'}`;
 }
 
 async function recordMapUse(room) {
@@ -285,14 +248,14 @@ async function recordMapUse(room) {
 
 function renderCampusMap() {
   const select = $("mapDestination");
-  const destinations = campusRooms.slice().sort((a, b) => roomTitle(a).localeCompare(roomTitle(b)));
+  const destinations = mapDestinations().sort((a, b) => placeTitle(a).localeCompare(placeTitle(b)));
   select.innerHTML = `<option value="">Choose a room or location</option>${destinations
-    .map((room) => `<option value="${esc(room.id)}">${esc(roomTitle(room))} — ${esc(room.building || room.name || "Campus")}</option>`)
+    .map((place) => `<option value="${esc(place.destinationId)}">${esc(placeTitle(place))} — ${esc(place.building || place.location || place.name || "Campus")}</option>`)
     .join("")}`;
-  if (!destinations.some((room) => room.id === selectedMapRoomId)) selectedMapRoomId = "";
-  select.value = selectedMapRoomId;
+  if (!destinations.some((place) => place.destinationId === selectedMapPlaceId)) selectedMapPlaceId = "";
+  select.value = selectedMapPlaceId;
   select.onchange = () => {
-    selectedMapRoomId = select.value;
+    selectedMapPlaceId = select.value;
     pendingArrivalRoomId = "";
     $("confirmArrival").hidden = true;
     updateMapPlaceDetails();
@@ -334,17 +297,17 @@ function updateCameraGuidance() {
   if (!cameraStream) return;
   const marker = $("cameraMarker");
   const arrow = marker.querySelector(".camera-marker-arrow");
-  const room = selectedMapRoom();
-  const destination = roomCoordinates(room);
+  const place = selectedMapPlace();
+  const destination = placeCoordinates(place);
   const status = $("cameraStatus");
-  if (!room) {
+  if (!place) {
     marker.hidden = true;
-    status.textContent = "Choose a room from Find a room to show its direction in the camera view.";
+    status.textContent = "Choose a destination from Find a room to show its direction in the camera view.";
     return;
   }
   if (!destination) {
     marker.hidden = true;
-    status.textContent = "This destination has no coordinates yet. Camera preview is active; ask an administrator to add the location.";
+    status.textContent = "This destination has no coordinates yet. Ask an administrator to add latitude and longitude.";
     return;
   }
   if (!currentPosition) {
@@ -374,11 +337,11 @@ function updateCameraGuidance() {
   marker.hidden = false;
   marker.style.left = `${markerPosition}%`;
   arrow.style.transform = `rotate(${Math.max(-45, Math.min(45, difference))}deg)`;
-  $("cameraMarkerLabel").textContent = `${roomTitle(room)} · ${distanceLabel}`;
+  $("cameraMarkerLabel").textContent = `${placeTitle(place)} · ${distanceLabel}`;
   if (Math.abs(difference) > 18) {
-    status.textContent = `Turn ${difference > 0 ? "right" : "left"} toward ${roomTitle(room)} · about ${distanceLabel} away.`;
+    status.textContent = `Turn ${difference > 0 ? "right" : "left"} toward ${placeTitle(place)} · about ${distanceLabel} away.`;
   } else {
-    status.textContent = `${roomTitle(room)} is roughly ahead · about ${distanceLabel} away.`;
+    status.textContent = `${placeTitle(place)} is roughly ahead · about ${distanceLabel} away.`;
   }
 }
 
@@ -400,9 +363,9 @@ function stopCameraView(message = "") {
 }
 
 async function confirmCameraArrival() {
-  const room = selectedMapRoom();
+  const room = selectedMapPlace();
   const button = $("confirmArrival");
-  if (currentRole !== "student" || !currentStudentNumber ||
+  if (room?.destinationType !== "room" || currentRole !== "student" || !currentStudentNumber ||
       !currentUser || !room || pendingArrivalRoomId !== room.id || arrivalRecordedRoomIds.has(room.id)) {
     return;
   }
@@ -421,7 +384,7 @@ async function confirmCameraArrival() {
     });
     arrivalRecordedRoomIds.add(room.id);
     pendingArrivalRoomId = "";
-    $("recognitionStatus").textContent = `Arrival recorded for ${roomTitle(room)}. Thank you for checking in.`;
+    $("recognitionStatus").textContent = `Arrival recorded for ${placeTitle(room)}. Thank you for checking in.`;
     $("cameraStatus").textContent = "Your destination visit has been recorded.";
     $("feedbackPrompt").hidden = false;
     openSection("evaluation");
@@ -479,33 +442,38 @@ async function recognizeCameraSign(stream, session) {
     if (session !== recognitionSession || cameraStream !== stream) return;
 
     const text = result.data.text || "";
-    const room = selectedMapRoom();
-    if (!room) {
+    const place = selectedMapPlace();
+    if (!place) {
       $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = "Choose a destination first, then point the camera at its room number.";
+      $("recognitionStatus").textContent = "Choose a destination first to use camera guidance.";
       return;
     }
-    if (arrivalRecordedRoomIds.has(room.id)) {
+    if (place.destinationType === "faculty") {
       $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = `Arrival for ${roomTitle(room)} is already recorded.`;
+      $("recognitionStatus").textContent = "Camera guidance is available for this faculty location. Follow the direction marker.";
       return;
     }
-    if (!room.roomNumber) {
+    if (arrivalRecordedRoomIds.has(place.id)) {
+      $("confirmArrival").hidden = true;
+      $("recognitionStatus").textContent = `Arrival for ${placeTitle(place)} is already recorded.`;
+      return;
+    }
+    if (!place.roomNumber) {
       $("confirmArrival").hidden = true;
       $("recognitionStatus").textContent = "This destination has no room number to check. Ask an administrator to add one.";
       return;
     }
-    if (recognizesRoomNumber(text, room)) {
-      pendingArrivalRoomId = room.id;
-      $("confirmArrival").textContent = `Confirm arrival at ${roomTitle(room)}`;
+    if (recognizesRoomNumber(text, place)) {
+      pendingArrivalRoomId = place.id;
+      $("confirmArrival").textContent = `Confirm arrival at ${placeTitle(place)}`;
       $("confirmArrival").hidden = currentRole !== "student" || !currentStudentNumber;
       $("recognitionStatus").textContent = currentRole === "student" && currentStudentNumber
-        ? `Possible match for ${roomTitle(room)}. Verify you are there, then confirm arrival.`
-        : "Room number recognized. Arrival tracking is available to student accounts with a linked student number.";
+        ? `Possible match for ${placeTitle(place)}. Verify you are there, then confirm arrival.`
+        : "Room number recognized. Arrival tracking is available to student accounts with a registered student number.";
     } else {
       pendingArrivalRoomId = "";
       $("confirmArrival").hidden = true;
-      $("recognitionStatus").textContent = `Looking for room number ${room.roomNumber}. Aim at the destination sign and move closer.`;
+      $("recognitionStatus").textContent = `Looking for room number ${place.roomNumber}. Aim at the destination sign and move closer.`;
     }
   } catch (error) {
     if (session === recognitionSession && cameraStream === stream) {
@@ -630,13 +598,19 @@ function renderFaculties(snapshot) {
   list.innerHTML = snapshot.docs.map((item) => {
     const data = item.data();
     const image = safeHttpUrl(data.image) || (String(data.image || "").startsWith("data:image/") ? data.image : "");
+    const faculty = campusFaculties.find((place) => place.id === item.id);
+    const coordinates = placeCoordinates(faculty);
+    const direction = coordinates ? directionsUrl(coordinates, currentPosition) : "";
     return `<article class="card">
       ${image ? `<img class="card-image" src="${esc(image)}" alt="">` : '<div class="card-art" aria-hidden="true">⌂</div>'}
       <div class="card-content"><span class="card-kicker">FACULTY</span><h3>${esc(data.name || "Faculty")}</h3>
       <p>${esc(data.description || "Campus faculty information.")}</p>
       <dl class="detail-list">${data.location ? `<div><dt>Location</dt><dd>${esc(data.location)}</dd></div>` : ""}
+      ${coordinates ? `<div><dt>Coordinates</dt><dd>${coordinates.lat.toFixed(5)}, ${coordinates.lng.toFixed(5)}</dd></div>` : ""}
       ${data.contact ? `<div><dt>Contact</dt><dd>${esc(data.contact)}</dd></div>` : ""}
-      ${data.hours ? `<div><dt>Office hours</dt><dd>${esc(data.hours)}</dd></div>` : ""}</dl></div>
+      ${data.hours ? `<div><dt>Office hours</dt><dd>${esc(data.hours)}</dd></div>` : ""}</dl>
+      ${direction ? `<a class="text-link" data-map-directions href="${esc(direction)}" target="_blank" rel="noopener noreferrer">Get directions <span aria-hidden="true">↗</span></a>` : '<p class="muted-note">Add coordinates to enable directions and camera guidance.</p>'}
+      </div>
     </article>`;
   }).join("");
 }
@@ -644,21 +618,21 @@ function renderFaculties(snapshot) {
 function renderRooms() {
   const sortedRooms = [...campusRooms].sort((a, b) => {
     if (!currentPosition) return String(a.roomNumber || "").localeCompare(String(b.roomNumber || ""));
-    const aCoords = roomCoordinates(a);
-    const bCoords = roomCoordinates(b);
+    const aCoords = placeCoordinates(a);
+    const bCoords = placeCoordinates(b);
     if (!aCoords) return 1;
     if (!bCoords) return -1;
     return distanceInMeters(currentPosition, aCoords) - distanceInMeters(currentPosition, bCoords);
   });
   const roomMarkup = (room, showDistance) => {
-    const coords = roomCoordinates(room);
+    const coords = placeCoordinates(room);
     const image = safeHttpUrl(room.mapUrl) || (String(room.mapUrl || "").startsWith("data:image/") ? room.mapUrl : "");
     const distance = currentPosition && coords ? distanceInMeters(currentPosition, coords) : null;
     const direction = coords ? directionsUrl(coords, currentPosition) : safeHttpUrl(room.mapLink);
     return `<article class="card">
       ${image ? `<img class="card-image" src="${esc(image)}" alt="Floor plan for room ${esc(room.roomNumber || "")}">` : '<div class="card-art campus-art" role="img" aria-label="La Concepcion College campus"></div>'}
       <div class="card-content"><span class="card-kicker">${esc(room.building || "CAMPUS")} ${room.floor ? `· ${esc(room.floor)}` : ""}</span>
-      <h3>${esc(roomTitle(room))}</h3>
+      <h3>${esc(placeTitle(room))}</h3>
       <p>${esc(room.description || room.roomType || "Campus room")}</p>
       ${showDistance && distance !== null ? `<p class="distance-label">${distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`} from you</p>` : ""}
       ${direction ? `<a class="text-link" data-map-directions data-room-id="${esc(room.id)}" href="${esc(direction)}" target="_blank" rel="noopener noreferrer">${currentPosition && coords ? "Get directions" : "View location"} <span aria-hidden="true">↗</span></a>` : (coords ? "" : '<p class="muted-note">Location coordinates not added yet.</p>')}
@@ -669,7 +643,7 @@ function renderRooms() {
   $("roomList").innerHTML = sortedRooms.length
     ? sortedRooms.map((room) => roomMarkup(room, true)).join("")
     : '<p class="empty-state">No rooms have been added yet.</p>';
-  const mappedRooms = sortedRooms.filter((room) => roomCoordinates(room) || safeHttpUrl(room.mapLink));
+  const mappedRooms = sortedRooms.filter((room) => placeCoordinates(room) || safeHttpUrl(room.mapLink));
   $("mapList").innerHTML = mappedRooms.length
     ? mappedRooms.map((room) => roomMarkup(room, true)).join("")
     : '<p class="empty-state">No mapped rooms yet. Campus administrators can add room coordinates.</p>';

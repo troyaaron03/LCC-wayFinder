@@ -135,7 +135,7 @@ exports.listUserAccounts = onCall(async (request) => {
         return {
           uid: user.uid,
           email: user.email || "",
-          role: profile?.exists && ["student", "visitor", "admin", "superadmin"].includes(profile.data().role)
+          role: profile?.exists && ["student", "visitor", "faculty", "admin", "superadmin"].includes(profile.data().role)
             ? profile.data().role
             : "student",
           studentNumber: profile?.exists ? profile.data().studentNumber || "" : ""
@@ -157,13 +157,13 @@ exports.setUserAccountRole = onCall(async (request) => {
   const managerRole = await getAccountManagerRole(actorId);
   const targetId = String(request.data?.userId || "");
   const nextRole = String(request.data?.role || "");
-  if (!targetId || !["admin", "superadmin", "student", "visitor"].includes(nextRole)) {
+  if (!targetId || !["admin", "superadmin", "student", "visitor", "faculty"].includes(nextRole)) {
     throw new HttpsError("invalid-argument", "Choose a valid user account and role.");
   }
   if (targetId === actorId) {
     throw new HttpsError("failed-precondition", "You cannot change your own account role.");
   }
-  if (managerRole !== "superadmin" && !["student", "visitor"].includes(nextRole)) {
+  if (managerRole !== "superadmin" && !["student", "visitor", "faculty"].includes(nextRole)) {
     throw new HttpsError("permission-denied", "Only a superadmin can assign admin or superadmin roles.");
   }
 

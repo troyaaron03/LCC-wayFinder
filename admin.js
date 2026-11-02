@@ -47,7 +47,7 @@ onAuthStateChanged(auth, async (user) => {
     managerRole = profile.data().role;
     $("users").querySelector("p").textContent = managerRole === "superadmin"
       ? "Manage registered accounts and assign roles."
-      : "Manage student and visitor accounts. Only superadmins can assign admin or superadmin access.";
+      : "Manage student, visitor, and faculty accounts. Only superadmins can assign admin or superadmin access.";
     loadFaculty();
     loadRooms();
     loadQrCodes();
@@ -120,7 +120,7 @@ async function loadUserAccounts(reset) {
         return {
           uid: profile.id,
           email: data.email || "",
-          role: ["student", "visitor", "admin", "superadmin"].includes(data.role) ? data.role : "student",
+          role: ["student", "visitor", "faculty", "admin", "superadmin"].includes(data.role) ? data.role : "student",
           studentNumber: data.studentNumber || ""
         };
       });
@@ -152,8 +152,8 @@ function renderUserAccounts() {
       ["admin", "superadmin"].includes(account.role);
     const canEdit = account.uid !== currentUid && !fixedRoleForAdmin;
     const roles = managerRole === "superadmin"
-      ? ["student", "visitor", "admin", "superadmin"]
-      : ["student", "visitor"];
+      ? ["student", "visitor", "faculty", "admin", "superadmin"]
+      : ["student", "visitor", "faculty"];
     return `<article class="card user-account-card">
       <span class="card-kicker">${esc(account.role.toUpperCase())}</span>
       <h3>${esc(account.email || "Email unavailable")}</h3>
@@ -303,6 +303,13 @@ function faculty(data = {}, id = null) {
     <textarea id="description">${esc(data.description)}</textarea>
     <label>Office / Location</label>
     <input id="location" value="${esc(data.location)}">
+    <label>Latitude (optional)</label>
+    <input id="latitude" type="number" step="any" min="-90" max="90"
+      value="${esc(data.latitude ?? "")}" placeholder="e.g. 14.5995">
+    <label>Longitude (optional)</label>
+    <input id="longitude" type="number" step="any" min="-180" max="180"
+      value="${esc(data.longitude ?? "")}" placeholder="e.g. 120.9842">
+    <small class="hint">Enter both coordinates to add this faculty location to the map and enable camera guidance.</small>
     <label>Contact</label>
     <input id="contact" value="${esc(data.contact)}">
     <label>Office Hours</label>
@@ -331,10 +338,23 @@ function faculty(data = {}, id = null) {
       if (file) image = await imageFileToDataUrl(file);
       else if (typedUrl) image = typedUrl;
 
+      const latitudeValue = val("latitude");
+      const longitudeValue = val("longitude");
+      if (Boolean(latitudeValue) !== Boolean(longitudeValue)) {
+        throw new Error("Enter both latitude and longitude, or leave both blank.");
+      }
+      const latitude = latitudeValue ? Number(latitudeValue) : null;
+      const longitude = longitudeValue ? Number(longitudeValue) : null;
+      if ((latitude !== null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) ||
+          (longitude !== null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180))) {
+        throw new Error("Enter valid coordinates: latitude -90 to 90 and longitude -180 to 180.");
+      }
       const record = {
         name: val("name"),
         description: val("description"),
         location: val("location"),
+        latitude,
+        longitude,
         contact: val("contact"),
         hours: val("hours"),
         image,
@@ -482,7 +502,7 @@ async function loadFaculty() {
           ${data.image ? `<img class="card-image" src="${esc(data.image)}" alt="${esc(data.name)}">` : ""}
           <h3>${esc(data.name)}</h3>
           <p>${esc(data.description || "No description.")}</p>
-          <p><b>Location:</b> ${esc(data.location || "-")}<br><b>Contact:</b> ${esc(data.contact || "-")}<br><b>Hours:</b> ${esc(data.hours || "-")}</p>
+          <p><b>Location:</b> ${esc(data.location || "-")}<br><b>Coordinates:</b> ${data.latitude != null && data.longitude != null ? `${esc(data.latitude)}, ${esc(data.longitude)}` : "Not set"}<br><b>Contact:</b> ${esc(data.contact || "-")}<br><b>Hours:</b> ${esc(data.hours || "-")}</p>
           <div class="actions">
             <button class="edit" data-edit-faculty="${item.id}">Edit</button>
             <button class="delete" data-delete-faculty="${item.id}">Delete</button>

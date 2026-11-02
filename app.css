@@ -24,13 +24,6 @@ button{cursor:pointer}
 .section-tab{flex:none;padding:12px 15px;border:0;border-bottom:2px solid transparent;background:transparent;color:#748078;font-size:13px;font-weight:700}
 .section-tab:hover{color:#1c5b9e}
 .section-tab.active{border-bottom-color:#1e5a9f;color:#164a83}
-.account-notice{margin:-16px 0 24px;padding:12px 14px;border:1px solid #f0d7a8;border-radius:10px;background:#fff8e9;color:#77530d;font-size:12px;line-height:1.55}
-.account-notice>p{margin:0}
-.account-setup-form{display:grid;gap:8px;margin-top:12px}
-.account-setup-form label{font-weight:700}
-.account-setup-fields{display:flex;gap:8px}
-.account-setup-fields input{min-width:0;max-width:210px;padding:9px 11px;border:1px solid #dfd5bd;border-radius:8px;background:#fff}
-.account-setup-form [role=status]{margin:0}
 .dashboard-section{display:none}
 .dashboard-section.active{display:block}
 .section-heading{display:flex;align-items:flex-end;justify-content:space-between;margin:0 0 20px}

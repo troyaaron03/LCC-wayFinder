@@ -40,12 +40,13 @@ verification is not required for sign-in. Students sign in with their campus
 email; the student number is linked privately to their account and used for
 arrival records.
 
-Admins can assign student or visitor roles. Visitors can sign in and browse the
-campus directory, but cannot create arrival transactions. Only superadmins can
-assign admin or superadmin roles. Manage accounts from the admin User accounts
-tab. At least one superadmin must be provisioned directly in Firestore before
-anyone can grant elevated roles. Role management and account setup require the
-Cloud Functions to be deployed. Student numbers are not used to sign in.
+Admins can assign student, visitor, or faculty roles. All three can use the map
+and request their device location; visitor and faculty accounts cannot create
+student arrival transactions. Only superadmins can assign admin or superadmin
+roles. Manage accounts from the admin User accounts tab. At least one superadmin
+must be provisioned directly in Firestore before anyone can grant elevated
+roles. Role management and account setup require the Cloud Functions to be
+deployed. Student numbers are not used to sign in.
 
 RUN
 Open the cns folder in VS Code and use Live Server on index.html. The Tailwind
@@ -64,9 +65,12 @@ Both coordinates are required together. Coordinates are optional; rooms without
 them remain available in the directory. Students can select Use my location to
 request a one-time browser location reading, see nearby rooms first, and open a
 Google Maps route. GPS requires the user's permission and a secure context (HTTPS
-or localhost). A student's location is held in page memory only and is not
-written to Firebase. It is included in a Google Maps link only if the student
+or localhost). A user's location is held in page memory only and is not
+written to Firebase. It is included in a Google Maps link only if the user
 chooses to open directions.
+Faculty locations can also be given latitude and longitude in the faculty editor.
+Mapped faculties appear as map destinations and can use camera compass guidance;
+camera arrival check-ins remain limited to rooms.
 The Computer Lab entry defaults to 14.803056, 121.069722, converted from the
 coordinates supplied for the campus. Administrators should verify the pin is at
 the correct entrance before relying on directions.

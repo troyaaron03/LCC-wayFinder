@@ -85,19 +85,12 @@ loginForm.addEventListener("submit", async (event) => {
     if (profileData?.role === "student") {
       const studentNumber = String(profileData?.studentNumber || "") ||
           localStorage.getItem(`pendingStudentNumber:${user.uid}`) || "";
-      if (profileData.studentNumber) {
-      }
       if (studentNumber) {
         try {
           await linkStudentNumber(db, functions, user, studentNumber);
           localStorage.removeItem(`pendingStudentNumber:${user.uid}`);
-          sessionStorage.removeItem("studentNumberLinkNotice");
         } catch (error) {
           console.error("Could not complete student-number account setup:", error);
-          const message = error.code === "functions/already-exists"
-            ? "You’re signed in with email, but this student number is already linked to another account. Contact the administrator to resolve it."
-            : "You’re signed in with email, but student-number setup could not finish. Contact the administrator if you need arrival tracking.";
-          sessionStorage.setItem("studentNumberLinkNotice", message);
         }
       }
     } else if (!profileData) {
@@ -107,21 +100,11 @@ loginForm.addEventListener("submit", async (event) => {
         try {
           await linkStudentNumber(db, functions, user, pendingNumber);
           localStorage.removeItem(`pendingStudentNumber:${user.uid}`);
-          sessionStorage.removeItem("studentNumberLinkNotice");
         } catch (error) {
           console.error("Could not complete student-number account setup:", error);
-          sessionStorage.setItem(
-            "studentNumberLinkNotice",
-            "You’re signed in with email, but account setup is not complete. The administrator may need to deploy the setup function and update Firestore rules."
-          );
         }
-      } else {
-        sessionStorage.setItem(
-          "studentNumberLinkNotice",
-          "You’re signed in with email. Student account setup is incomplete; contact the administrator to finish linking your student number."
-        );
       }
-    } else if (profileData.role !== "visitor") {
+    } else if (!["visitor", "faculty"].includes(profileData.role)) {
       setMessage("Your account profile is missing or has an invalid role. Contact the administrator.", "error");
       await signOut(auth);
       return;
@@ -197,7 +180,7 @@ registerForm.addEventListener("submit", async (event) => {
     setMessage(
       studentProfileLinked
         ? "Account created. You can now sign in with your campus email."
-        : "Account created. Sign in with your campus email, then link your student number from the dashboard.",
+        : "Account created. You can sign in with your campus email. Contact the administrator if you need student arrival tracking.",
       "success"
     );
   } catch (error) {
