@@ -24,6 +24,10 @@ const modal = $("modal");
 const form = $("form");
 const title = $("title");
 let currentUserAccounts = [];
+let managerRole = "";
+let visitReportRows = [];
+let feedbackReportRows = [];
+let reportGeneratorName = "";
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -38,8 +42,20 @@ onAuthStateChanged(auth, async (user) => {
       location.href = "index.html";
       return;
     }
+    if (profile.data().isActive === false) {
+      await signOut(auth);
+      location.href = "index.html?account=deactivated";
+      return;
+    }
+    managerRole = profile.data().role;
+    reportGeneratorName = profile.data().displayName ||
+      profile.data().fullName ||
+      profile.data().name ||
+      user.displayName ||
+      user.email ||
+      "Admin account";
     $("users").querySelector("p").textContent =
-      "View account profiles saved in Firestore. This page does not change roles or delete accounts.";
+      "Update eligible account roles, or deactivate/reactivate access to Campus Wayfinder.";
     loadFaculty();
     loadRooms();
     loadQrCodes();
@@ -58,7 +74,9 @@ $("addFaculty").onclick = () => faculty();
 $("addRoom").onclick = () => room();
 $("addQrCode").onclick = () => qrCode();
 $("refreshFeedback").onclick = () => loadFeedback();
+$("downloadFeedbackReport").onclick = downloadFeedbackReport;
 $("refreshTransactions").onclick = () => loadTransactions();
+$("downloadVisitReport").onclick = downloadVisitReport;
 $("refreshUsers").onclick = () => loadUserAccounts();
 
 document.querySelectorAll(".admin-nav button").forEach((button) => {
@@ -92,7 +110,8 @@ async function loadUserAccounts() {
         role: ["student", "visitor", "faculty", "admin", "superadmin"].includes(data.role)
           ? data.role
           : "student",
-        studentNumber: data.studentNumber || ""
+        studentNumber: data.studentNumber || "",
+        isActive: data.isActive !== false
       };
     });
     renderUserAccounts();
@@ -111,15 +130,98 @@ function renderUserAccounts() {
     return;
   }
 
+  const currentUid = auth.currentUser?.uid;
   list.innerHTML = currentUserAccounts.map((account) => {
-    return `<article class="card user-account-card">
-      <span class="card-kicker">${esc(account.role.toUpperCase())}</span>
-      <h3>${esc(account.email || "Email unavailable")}</h3>
-      <p><strong>Student number:</strong> ${esc(account.studentNumber || "Not linked")}</p>
-      <p class="user-account-id"><strong>Account ID:</strong> ${esc(account.uid)}</p>
-      <p class="user-account-readonly">View only. Role changes and account deletion are not available here.</p>
+    const isSuperadmin = account.role === "superadmin";
+    const canManage = account.uid !== currentUid && !isSuperadmin &&
+      (managerRole === "superadmin" ||
+        ["student", "visitor", "faculty"].includes(account.role));
+    const roles = managerRole === "superadmin"
+      ? ["student", "visitor", "faculty", "admin"]
+      : ["student", "visitor", "faculty"];
+    return `<article class="account-row" role="listitem">
+      <div class="account-identity">
+        <span class="account-avatar" aria-hidden="true">${esc((account.email || "?").charAt(0).toUpperCase())}</span>
+        <div class="account-identity-copy">
+          <h3>${esc(account.email || "Email unavailable")}</h3>
+          <span>${esc(account.studentNumber ? `Student number ${account.studentNumber}` : "No student number linked")}</span>
+        </div>
+      </div>
+      <span class="account-role-badge">${esc(account.role)}</span>
+      <span class="account-status ${account.isActive ? "active" : "inactive"}">${account.isActive ? "Active" : "Deactivated"}</span>
+      <div class="account-management">
+      ${canManage ? `<form class="account-role-form" data-user-id="${esc(account.uid)}">
+        <label for="role-${esc(account.uid)}">Account role</label>
+        <div class="account-controls">
+          <select id="role-${esc(account.uid)}" name="role">
+            ${roles.map((role) => `<option value="${role}" ${role === account.role ? "selected" : ""}>${role}</option>`).join("")}
+          </select>
+          <button type="submit" class="save-role-button">Save role</button>
+        </div>
+        <p class="account-action-message" role="status" aria-live="polite"></p>
+      </form>
+      <button type="button" class="toggle-account-button ${account.isActive ? "deactivate" : "reactivate"}" data-user-id="${esc(account.uid)}">${account.isActive ? "Deactivate" : "Reactivate"}</button>` : `<p class="user-account-readonly">${account.uid === currentUid ? "Your own account is protected." : isSuperadmin ? "Superadmin account is protected." : "Only a superadmin can manage this account."}</p>`}
+      </div>
     </article>`;
   }).join("");
+
+  list.querySelectorAll(".account-role-form").forEach((roleForm) => {
+    roleForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const userId = roleForm.dataset.userId;
+      const account = currentUserAccounts.find((item) => item.uid === userId);
+      const role = roleForm.elements.role.value;
+      const button = roleForm.querySelector("button");
+      const message = roleForm.querySelector(".account-action-message");
+      if (!account || role === account.role) {
+        message.textContent = "Choose a different role first.";
+        return;
+      }
+
+      button.disabled = true;
+      message.textContent = "Saving role…";
+      try {
+        await updateDoc(doc(db, "users", userId), { role });
+        message.textContent = "Role updated.";
+        await loadUserAccounts();
+      } catch (error) {
+        console.error("Could not update account role:", error);
+        message.textContent = error.code === "permission-denied"
+          ? "Your account cannot assign that role."
+          : `Could not update role: ${error.message}`;
+        button.disabled = false;
+      }
+    });
+  });
+
+  list.querySelectorAll(".toggle-account-button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const userId = button.dataset.userId;
+      const account = currentUserAccounts.find((item) => item.uid === userId);
+      if (!account) return;
+      const nextActive = !account.isActive;
+      const action = nextActive ? "reactivate" : "deactivate";
+      if (!confirm(`Are you sure you want to ${action} ${account.email || "this account"}?`)) {
+        return;
+      }
+
+      button.disabled = true;
+      const message = button.previousElementSibling?.querySelector(".account-action-message");
+      if (message) message.textContent = `${action === "deactivate" ? "Deactivating" : "Reactivating"} account…`;
+      try {
+        await updateDoc(doc(db, "users", userId), { isActive: nextActive });
+        await loadUserAccounts();
+      } catch (error) {
+        console.error(`Could not ${action} user account:`, error);
+        if (message) {
+          message.textContent = error.code === "permission-denied"
+            ? "Your account cannot change this account's status."
+            : `Could not ${action} account: ${error.message}`;
+        }
+        button.disabled = false;
+      }
+    });
+  });
 }
 
 document.querySelectorAll("[data-quick-action]").forEach((button) => {
@@ -689,6 +791,8 @@ async function loadQrCodes() {
 async function loadFeedback() {
   const list = $("feedbackList");
   list.innerHTML = "<p>Loading student feedback...</p>";
+  $("downloadFeedbackReport").disabled = true;
+  feedbackReportRows = [];
 
   try {
     const feedbackQuery = query(
@@ -700,6 +804,7 @@ async function loadFeedback() {
     setCount("feedbackCount", snapshot.size);
 
     if (snapshot.empty) {
+      setCount("feedbackCount", 0);
       list.innerHTML = emptyState(
         "✳",
         "No feedback yet",
@@ -711,49 +816,27 @@ async function loadFeedback() {
       return;
     }
 
-    list.innerHTML = "";
-
-    snapshot.forEach((item) => {
+    const feedbackRows = snapshot.docs.map((item) => {
       const data = item.data();
-
-      const rating = Math.max(
-        0,
-        Math.min(5, Number(data.rating) || 0)
-      );
-
-      const date = data.createdAt?.toDate
-        ? data.createdAt.toDate().toLocaleString()
-        : "Date unavailable";
-
-      list.innerHTML += `
-        <article class="card">
-          <h3>Student rating</h3>
-
-          <p>
-            <strong>Rating:</strong>
-            <span aria-label="${rating} out of 5 stars">
-              ${"★".repeat(rating)}${"☆".repeat(5 - rating)}
-            </span>
-            (${rating}/5)
-          </p>
-
-          <p>
-            <strong>Comment:</strong>
-            ${esc(data.comment || "No comment provided.")}
-          </p>
-
-          <p>
-            <strong>Submitted:</strong>
-            ${esc(date)}
-          </p>
-
-          <p>
-            <strong>Account:</strong>
-            ${esc(data.accountName || data.userEmail || data.userId || "Unavailable")}
-          </p>
-        </article>
-      `;
+      return {
+        data,
+        rating: Math.max(0, Math.min(5, Math.round(Number(data.rating) || 0))),
+        date: reportDate(data.createdAt)
+      };
     });
+    feedbackRows.sort((a, b) => b.rating - a.rating ||
+      (b.date?.getTime() || 0) - (a.date?.getTime() || 0));
+    feedbackReportRows = feedbackRows;
+    $("downloadFeedbackReport").disabled = false;
+    list.innerHTML = `<table class="report-table">
+      <thead><tr><th>Student name / account</th><th>Rating</th><th>Feedback</th><th>Submitted</th></tr></thead>
+      <tbody>${feedbackRows.map(({ data, rating, date }) => `<tr>
+        <td><span class="report-person">${esc(reportName(data))}</span></td>
+        <td><span class="report-stars" aria-label="${rating} out of 5 stars">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><span class="report-subtext">${rating}/5 stars</span></td>
+        <td class="report-comment">${esc(data.comment || "No comment provided.")}</td>
+        <td class="report-date">${esc(date ? date.toLocaleString() : "Date unavailable")}</td>
+      </tr>`).join("")}</tbody>
+    </table>`;
   } catch (error) {
     console.error("Could not load feedback:", error);
     list.innerHTML = `
@@ -767,26 +850,139 @@ async function loadFeedback() {
 async function loadTransactions() {
   const list = $("transactionList");
   list.innerHTML = "<p>Loading destination visits...</p>";
+  $("downloadVisitReport").disabled = true;
+  visitReportRows = [];
   try {
     const snapshot = await getDocs(query(collection(db, "transactions"), orderBy("createdAt", "desc")));
+    visitReportRows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+    $("downloadVisitReport").disabled = snapshot.empty;
     if (snapshot.empty) {
       list.innerHTML = '<p class="empty-state">No destination visits have been recorded yet.</p>';
       return;
     }
 
-    list.innerHTML = snapshot.docs.map((item) => {
-      const data = item.data();
-      const date = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleString() : "Date unavailable";
-      return `<article class="card">
-        <span class="card-kicker">${data.method === "camera" ? "ARRIVAL" : "MAP DIRECTIONS"}</span>
-        <h3>${esc(data.building || "Campus")} · ${esc(data.destinationName || data.roomNumber || "Room unavailable")}</h3>
-        <p><strong>Account:</strong> ${esc(data.accountName || "Unavailable")}</p>
-        <p><strong>Student number:</strong> ${esc(data.studentNumber || "Unavailable")}</p>
-        <p><strong>Recorded:</strong> ${esc(date)}</p>
-      </article>`;
-    }).join("");
+    list.innerHTML = `<table class="report-table">
+      <thead><tr><th>Student name / account</th><th>Place</th><th>Student number</th><th>Visit type</th><th>Date</th><th>Time</th></tr></thead>
+      <tbody>${visitReportRows.map((data) => {
+        const date = reportDate(data.createdAt);
+        return `<tr>
+          <td><span class="report-person">${esc(reportName(data))}</span></td>
+          <td><span class="report-person">${esc(reportPlace(data))}</span><span class="report-subtext">${esc(data.building || data.location || "Campus")}</span></td>
+          <td>${esc(data.studentNumber || "Unavailable")}</td>
+          <td>${data.method === "camera" ? "Arrival" : "Map directions"}</td>
+          <td class="report-date">${esc(date ? date.toLocaleDateString() : "Unavailable")}</td>
+          <td class="report-date">${esc(date ? date.toLocaleTimeString() : "Unavailable")}</td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
   } catch (error) {
     console.error("Could not load destination visits:", error);
     list.innerHTML = `<p class="error-text">Could not load destination visits: ${esc(error.message)}</p>`;
+  }
+}
+
+function reportDate(value) {
+  if (value?.toDate) return value.toDate();
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+}
+
+function reportName(data) {
+  return data.studentName || data.name || data.accountName || data.userEmail || data.userId || "Unavailable";
+}
+
+function reportPlace(data) {
+  const roomNumber = String(data.roomNumber || "");
+  const room = roomNumber && /^room\b/i.test(roomNumber) ? roomNumber : `Room ${roomNumber}`;
+  return data.destinationName || (roomNumber ? room : "Place unavailable");
+}
+
+function downloadVisitReport() {
+  if (!visitReportRows.length) return;
+  const headers = ["Student name / account", "Student number", "Place", "Building", "Date", "Time", "Visit type"];
+  const rows = visitReportRows.map((row) => {
+    const date = reportDate(row.createdAt);
+    return [
+      reportName(row),
+      row.studentNumber || "Unavailable",
+      reportPlace(row),
+      row.building || row.location || "Campus",
+      date?.toLocaleDateString() || "Unavailable",
+      date?.toLocaleTimeString() || "Unavailable",
+      row.method === "camera" ? "Arrival" : "Map directions"
+    ];
+  });
+  openPdfReport("Destination Visits Report", headers, rows, "destination-visits");
+}
+
+function downloadFeedbackReport() {
+  if (!feedbackReportRows.length) return;
+  const headers = ["Student name / account", "Rating", "Feedback", "Submitted"];
+  const rows = feedbackReportRows.map(({ data, rating, date }) => [
+    reportName(data),
+    `${rating}/5 stars`,
+    data.comment || "No comment provided.",
+    date?.toLocaleString() || "Date unavailable"
+  ]);
+  openPdfReport("Student Feedback Report", headers, rows, "student-feedback");
+}
+
+function openPdfReport(title, headers, rows, filename) {
+  const reportWindow = window.open("", "_blank");
+  if (!reportWindow) {
+    alert("The PDF report could not open because pop-ups are blocked. Allow pop-ups for this site and try again.");
+    return;
+  }
+  const generatedAt = new Date().toLocaleString();
+  const generatedBy = reportGeneratorName || auth.currentUser?.email || "Admin account";
+  const campusLogoUrl = new URL("assets/campus-logo.jpg", location.href).href;
+  const head = headers.map((header) => `<th>${esc(header)}</th>`).join("");
+  const body = rows.map((row) =>
+    `<tr>${row.map((cell) => `<td>${esc(cell)}</td>`).join("")}</tr>`
+  ).join("");
+  reportWindow.document.open();
+  reportWindow.document.write(`<!doctype html>
+    <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${esc(filename)}-${new Date().toISOString().slice(0, 10)}</title>
+    <style>
+      *{box-sizing:border-box}body{margin:0;padding:32px;color:#24364a;font-family:Arial,sans-serif}
+      .report-heading{display:flex;align-items:center;gap:15px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #164d8f}
+      .school-logo{width:66px;height:66px;flex:none;object-fit:contain}
+      .report-brand{min-width:0}.school-name{margin:0 0 4px;color:#164d8f;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase}
+      .brand{margin:0 0 9px;color:#52677b;font-size:10px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
+      h1{margin:0 0 7px;font-size:24px} .meta{margin:3px 0 0;color:#627181;font-size:11px}
+      table{width:100%;border-collapse:collapse;font-size:10px;table-layout:auto}
+      th,td{padding:9px 8px;border:1px solid #d9e0e5;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+      th{background:#edf3f8;color:#28445e;font-size:9px;text-transform:uppercase;letter-spacing:.04em}
+      tbody tr:nth-child(even){background:#f8fafb}
+      @page{size:landscape;margin:14mm}
+      @media print{body{padding:0}thead{display:table-header-group}tr{break-inside:avoid}}
+    </style></head><body>
+    <header class="report-heading"><img class="school-logo" src="${esc(campusLogoUrl)}" alt="La Concepcion College logo">
+    <div class="report-brand"><p class="school-name">La Concepcion College</p><p class="brand">Campus Wayfinder · Administration</p>
+    <h1>${esc(title)}</h1><p class="meta"><strong>Generated by:</strong> ${esc(generatedBy)}</p>
+    <p class="meta"><strong>Generated on:</strong> ${esc(generatedAt)} · ${rows.length} records</p></div></header>
+    <table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    </body></html>`);
+  reportWindow.document.close();
+  let printStarted = false;
+  const startPrint = () => {
+    if (printStarted) return;
+    printStarted = true;
+    if (reportWindow.closed) return;
+    reportWindow.focus();
+    reportWindow.print();
+  };
+  const logo = reportWindow.document.querySelector(".school-logo");
+  if (logo.complete) {
+    setTimeout(startPrint, 100);
+  } else {
+    logo.addEventListener("load", startPrint, { once: true });
+    logo.addEventListener("error", startPrint, { once: true });
+    setTimeout(startPrint, 2000);
   }
 }

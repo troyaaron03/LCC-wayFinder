@@ -133,6 +133,11 @@ onAuthStateChanged(auth, async (user) => {
   currentUser = user;
   try {
     const profile = await getDoc(doc(db, "users", user.uid));
+    if (profile.exists() && profile.data().isActive === false) {
+      await signOut(auth);
+      location.href = "index.html?account=deactivated";
+      return;
+    }
     currentRole = profile.exists() ? profile.data().role : "student";
     if (!["student", "visitor", "faculty"].includes(currentRole)) {
       throw new Error("Campus profile not found or invalid.");

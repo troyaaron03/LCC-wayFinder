@@ -16,6 +16,11 @@ FIREBASE SETUP
    The signed-in admin and superadmin roles can read destination transactions.
    If the admin page reports "Missing or insufficient permissions", make sure
    the latest rules are deployed to the same Firebase project used by the app.
+   The admin dashboard lists destination visits and feedback in PDF-ready
+   reports with the La Concepcion College logo and Campus Wayfinder name.
+   Use Export PDF and choose Save as PDF in the browser print dialog.
+   Feedback is sorted from highest to lowest star rating. Visit records use
+   the saved student/account identifier (usually email) when no name is stored.
 6. Deploy the student-number and account-management Cloud Functions:
    firebase deploy --only functions --project campus-navigation-system-4292f
    Enter the Firebase Web API key when prompted for FIREBASE_WEB_API_KEY. This
@@ -29,11 +34,15 @@ on the sign-in page to request a reset email. Student numbers are used for
 registration and account records; they are not accepted as a login identifier.
 Students can check in even when no student number is linked.
 
-ADMIN USER LIST TROUBLESHOOTING
-The admin User accounts page reads account profiles directly from the Firestore
-users collection, so it does not require Cloud Functions or a paid Firebase plan.
-Only accounts with a Firestore profile appear. This page is view-only; role
-changes and account deletion are not available.
+ADMIN USER ACCOUNTS
+The admin User accounts page reads profiles from the Firestore users collection,
+so it does not require Cloud Functions or a paid Firebase plan. Only accounts
+with a Firestore profile appear. Admins can assign student, visitor, and faculty
+roles and deactivate/reactivate regular accounts. Only superadmins can assign
+the admin role; superadmin profiles cannot be changed from the page.
+Deactivation blocks app access through Firestore rules, but does not disable
+Firebase Authentication sign-in. Publish updated Firestore rules when changing
+account access behavior.
 
 STUDENT ACCOUNTS
 Students register with an 8-digit student number, campus email, and a password
@@ -44,9 +53,7 @@ arrival records when available.
 
 Student, visitor, and faculty accounts can use the map and request their device
 location; visitor and faculty accounts cannot create student arrival
-transactions. The admin User accounts tab is view-only and lists Firestore
-profiles. Role changes and account deletion are unavailable. Student numbers
-are not used to sign in.
+transactions. Student numbers are not used to sign in.
 
 RUN
 Open the cns folder in VS Code and use Live Server on index.html. The Tailwind

@@ -5,8 +5,10 @@ button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .app-page{min-height:100vh;background:#f7f8f4}
 .app-header{position:sticky;z-index:5;top:0;display:flex;align-items:center;justify-content:space-between;min-height:70px;padding:0 clamp(20px,5vw,72px);border-bottom:1px solid #e9ede6;background:#ffffffed;backdrop-filter:blur(12px)}
-.brand{display:flex;align-items:center;gap:11px;color:#164d8f;font-size:16px;font-weight:750;letter-spacing:-.04em;text-decoration:none}
-.brand-mark{display:block;flex:none;width:60px;height:60px;border-radius:8px;object-fit:cover;background:#fff}
+.brand{display:flex;align-items:center;gap:12px;color:#164d8f;font-size:17px;font-weight:800;letter-spacing:-.045em;text-decoration:none;transition:opacity .15s}
+.brand:hover{opacity:.88}
+.brand-mark{display:block;flex:none;width:50px;height:50px;border:2px solid #e8edf5;border-radius:13px;object-fit:cover;background:#fff;box-shadow:0 4px 10px #0b24551a}
+.wayfinder-mark{display:block;flex:none;width:34px;height:34px;border-radius:10px}
 .brand-light{margin-left:4px;color:#728278;font-weight:500}
 .header-actions{display:flex;align-items:center;gap:18px}
 .user-email{max-width:260px;overflow:hidden;color:#718078;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
@@ -102,7 +104,8 @@ button{cursor:pointer}
 .app-footer span{padding:0 5px;color:#b7c0b8}
 [hidden]{display:none!important}
 @media(max-width:640px){.app-header{min-height:62px;padding:0 17px}.app-main{width:calc(100% - 30px);padding-top:22px}.welcome-banner{min-height:188px;padding:25px 22px}.welcome-symbol{width:68px;height:68px;font-size:40px}.welcome-banner p{font-size:12px}.section-nav{margin:20px 0 25px}.section-tab{padding:11px 12px;font-size:12px}.location-panel{flex-wrap:wrap;gap:12px;padding:16px}.location-copy{min-width:calc(100% - 62px)}.location-button{width:100%}.location-summary{align-items:flex-start;flex-wrap:wrap}.location-summary .muted-note{width:100%;margin-left:18px}.section-heading h2{font-size:24px}.qr-card{gap:12px;padding:12px}.qr-card-image,.qr-image{width:112px;height:112px}.user-email{display:none}.campus-map-tools{align-items:stretch;flex-wrap:wrap}.campus-map-tools label{width:100%}.campus-map-tools select{max-width:none;flex-basis:100%}.campus-map-actions{margin-left:0}}
-.brand-mark{display:block;flex:none;object-fit:cover;border-radius:8px;background:#fff}
+.brand-mark{display:block;flex:none;object-fit:cover;border-radius:13px}
+.wayfinder-mark{display:block;flex:none}
 .campus-art{height:164px;background-image:linear-gradient(0deg,rgba(20,74,145,.4),rgba(35,111,190,.2)),url("assets/campus-building.jpg");background-position:center;background-size:cover}
 .qr-card{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:14px;padding:14px}
 .qr-card-image{width:100%;max-width:156px;height:auto;aspect-ratio:1}
@@ -113,4 +116,4 @@ button{cursor:pointer}
 @media(max-width:640px){.qr-card{gap:12px;padding:12px}.qr-image{width:100%;height:100%}.qr-card .card-content{padding:8px 0}}
 .qr-card .card-content h3{word-break:normal;overflow-wrap:anywhere}
 .qr-card .text-link{line-height:1.5}
-@media(max-width:640px){.app-header .brand-mark{width:50px;height:50px}}
+@media(max-width:640px){.app-header .brand-mark{width:44px;height:44px;border-radius:13px}.app-header .wayfinder-mark{width:30px;height:30px}}

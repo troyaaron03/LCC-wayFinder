@@ -16,18 +16,29 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && isSignedInUser()
         && request.resource.data.createdAt == request.time;
-      // A user cannot change their role or remove their profile from the website.
       allow update: if request.auth != null
-        && request.auth.uid == userId
-        && resource.data.role == 'student'
-        && isSignedInUser()
-        && !resource.data.keys().hasAny(['studentNumber'])
-        && request.resource.data.keys().hasOnly(['email', 'role', 'createdAt', 'studentNumber'])
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.studentNumber is string
-        && request.resource.data.studentNumber.matches('^[0-9]{8}$');
+        && (
+          (request.auth.uid == userId
+            && resource.data.role == 'student'
+            && isSignedInUser()
+            && !resource.data.keys().hasAny(['studentNumber'])
+            && request.resource.data.keys().hasOnly(['email', 'role', 'createdAt', 'studentNumber', 'isActive'])
+            && request.resource.data.email == resource.data.email
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.get('isActive', true) == resource.data.get('isActive', true)
+            && request.resource.data.studentNumber is string
+            && request.resource.data.studentNumber.matches('^[0-9]{8}$'))
+          || (isAdmin()
+            && request.auth.uid != userId
+            && resource.data.role != 'superadmin'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'isActive'])
+            && request.resource.data.role in ['student', 'visitor', 'faculty', 'admin']
+            && (!request.resource.data.keys().hasAny(['isActive'])
+              || request.resource.data.isActive is bool)
+            && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin'
+              || (resource.data.role in ['student', 'visitor', 'faculty']
+                && request.resource.data.role in ['student', 'visitor', 'faculty']))));
       allow delete: if false;
     }
 
@@ -131,7 +142,8 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin']
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true;
     }
 
     function canReadCampus() {
@@ -139,7 +151,9 @@ service cloud.firestore {
     }
 
     function isSignedInUser() {
-      return request.auth != null;
+      return request.auth != null
+        && (!exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isActive', true) == true);
     }
   }
 }

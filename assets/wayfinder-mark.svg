@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" fill="none">
+  <defs>
+    <linearGradient id="background" x1="10" y1="8" x2="86" y2="90" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2857B8"/>
+      <stop offset="1" stop-color="#102F68"/>
+    </linearGradient>
+    <linearGradient id="pin" x1="37" y1="20" x2="61" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#CFE6FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="92" height="92" rx="25" fill="url(#background)"/>
+  <circle cx="48" cy="48" r="35" stroke="#FFFFFF" stroke-opacity=".16" stroke-width="1.5"/>
+  <circle cx="48" cy="48" r="27" stroke="#FFFFFF" stroke-opacity=".1"/>
+  <path d="M22 69C32 69 34 59 43 57C51 55 54 62 62 58C69 55 69 46 76 42" stroke="#8FC5FF" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 7"/>
+  <circle cx="22" cy="69" r="4" fill="#8FC5FF"/>
+  <path d="M48 18C36.954 18 28 26.954 28 38C28 53 48 73 48 73C48 73 68 53 68 38C68 26.954 59.046 18 48 18Z" fill="url(#pin)"/>
+  <circle cx="48" cy="38" r="12" fill="#164D8F"/>
+  <path d="M48 27L51.15 35.05L59 38L51.15 40.95L48 49L44.85 40.95L37 38L44.85 35.05L48 27Z" fill="#8FC5FF"/>
+  <circle cx="48" cy="38" r="2.5" fill="#FFFFFF"/>
+</svg>

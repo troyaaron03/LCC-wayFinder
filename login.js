@@ -43,6 +43,10 @@ function clearMessage() {
   setMessage("", "error");
 }
 
+if (new URLSearchParams(window.location.search).get("account") === "deactivated") {
+  setMessage("This account has been deactivated. Contact an administrator for help.");
+}
+
 document.getElementById("showRegister").addEventListener("click", () => {
   loginForm.hidden = true;
   registerForm.hidden = false;
@@ -78,6 +82,11 @@ loginForm.addEventListener("submit", async (event) => {
     );
 
     const profileData = profile.exists() ? profile.data() : null;
+    if (profileData?.isActive === false) {
+      setMessage("This account has been deactivated. Contact an administrator for help.");
+      await signOut(auth);
+      return;
+    }
     if (profileData?.role === "admin" || profileData?.role === "superadmin") {
       window.location.href = "admin.html";
       return;
