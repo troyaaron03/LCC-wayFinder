@@ -16,7 +16,7 @@ FIREBASE SETUP
    The signed-in admin and superadmin roles can read destination transactions.
    If the admin page reports "Missing or insufficient permissions", make sure
    the latest rules are deployed to the same Firebase project used by the app.
-6. Deploy the student-number and account-role Cloud Functions:
+6. Deploy the student-number and account-management Cloud Functions:
    firebase deploy --only functions --project campus-navigation-system-4292f
    Enter the Firebase Web API key when prompted for FIREBASE_WEB_API_KEY. This
    is the same public key used in the app configuration, not an admin secret.
@@ -24,17 +24,16 @@ FIREBASE SETUP
    enabled.
 
 SIGN-IN
-Sign in with the campus email used to create the account. Student numbers are
-used for registration and account records; they are not accepted as a login
-identifier. Students can check in even when no student number is linked.
+Sign in with the campus email used to create the account. Use Forgot password?
+on the sign-in page to request a reset email. Student numbers are used for
+registration and account records; they are not accepted as a login identifier.
+Students can check in even when no student number is linked.
 
 ADMIN USER LIST TROUBLESHOOTING
-The admin User accounts page lists Firebase Authentication users through the
-listUserAccounts Cloud Function. If it reports an internal error, the page
-falls back to Firestore profiles, but accounts without profiles will not appear.
-Deploy the latest Cloud Functions and grant the function runtime service account
-the Firebase Authentication Admin role in Google Cloud IAM. The fallback also
-requires the latest Firestore rules to be published.
+The admin User accounts page reads account profiles directly from the Firestore
+users collection, so it does not require Cloud Functions or a paid Firebase plan.
+Only accounts with a Firestore profile appear. This page is view-only; role
+changes and account deletion are not available.
 
 STUDENT ACCOUNTS
 Students register with an 8-digit student number, campus email, and a password
@@ -43,13 +42,11 @@ verification is not required for sign-in. Students sign in with their campus
 email; the student number is linked privately to their account and included in
 arrival records when available.
 
-Admins can assign student, visitor, or faculty roles. All three can use the map
-and request their device location; visitor and faculty accounts cannot create
-student arrival transactions. Only superadmins can assign admin or superadmin
-roles. Manage accounts from the admin User accounts tab. At least one superadmin
-must be provisioned directly in Firestore before anyone can grant elevated
-roles. Role management and account setup require the Cloud Functions to be
-deployed. Student numbers are not used to sign in.
+Student, visitor, and faculty accounts can use the map and request their device
+location; visitor and faculty accounts cannot create student arrival
+transactions. The admin User accounts tab is view-only and lists Firestore
+profiles. Role changes and account deletion are unavailable. Student numbers
+are not used to sign in.
 
 RUN
 Open the cns folder in VS Code and use Live Server on index.html. The Tailwind

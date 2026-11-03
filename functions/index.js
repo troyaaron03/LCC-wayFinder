@@ -122,11 +122,31 @@ async function getAccountManagerRole(userId) {
   return role;
 }
 
+function getAuthAdminError(error, action) {
+  if (error.code === "auth/insufficient-permission") {
+    return new HttpsError(
+      "failed-precondition",
+      `The Cloud Functions runtime service account needs the Firebase Authentication Admin role (roles/firebaseauth.admin) to ${action}. Grant the role in Google Cloud IAM, then redeploy the functions.`
+    );
+  }
+  if (error.code === "auth/user-not-found") {
+    return new HttpsError("not-found", "This Firebase Authentication account no longer exists. Refresh the account list.");
+  }
+  console.error(`Firebase Authentication ${action} failed:`, error);
+  return new HttpsError("internal", `Could not ${action}. Check the Cloud Functions logs.`);
+}
+
 exports.listUserAccounts = onCall(async (request) => {
   await getAccountManagerRole(request.auth?.uid);
   const pageToken = typeof request.data?.pageToken === "string" ? request.data.pageToken : undefined;
+  let result;
   try {
-    const result = await getAuth().listUsers(100, pageToken);
+    result = await getAuth().listUsers(100, pageToken);
+  } catch (error) {
+    throw getAuthAdminError(error, "list Firebase Authentication accounts");
+  }
+
+  try {
     const profiles = await db.getAll(...result.users.map((user) => db.collection("users").doc(user.uid)));
 
     return {
@@ -144,11 +164,8 @@ exports.listUserAccounts = onCall(async (request) => {
       nextPageToken: result.pageToken || null
     };
   } catch (error) {
-    console.error("Firebase Authentication account listing failed:", error);
-    throw new HttpsError(
-      "internal",
-      "Could not list Firebase Authentication accounts. Verify the Cloud Function runtime service account has Firebase Authentication Admin access."
-    );
+    console.error("Could not load account profiles:", error);
+    throw new HttpsError("internal", "Could not load account profiles from Firestore.");
   }
 });
 
@@ -204,4 +221,86 @@ exports.setUserAccountRole = onCall(async (request) => {
   });
 
   return { userId: targetId, role: nextRole };
+});
+
+exports.deleteUserAccount = onCall(async (request) => {
+  const actorId = request.auth?.uid;
+  await getAccountManagerRole(actorId);
+  const targetId = String(request.data?.userId || "");
+  if (!targetId) {
+    throw new HttpsError("invalid-argument", "Choose a user account to delete.");
+  }
+  if (targetId === actorId) {
+    throw new HttpsError("failed-precondition", "You cannot delete your own account.");
+  }
+
+  try {
+    await getAuth().getUser(targetId);
+  } catch (error) {
+    throw getAuthAdminError(error, "delete Firebase Authentication accounts");
+  }
+  const actorRef = db.collection("users").doc(actorId);
+  const userRef = db.collection("users").doc(targetId);
+  let deletedProfile = null;
+  let deletedStudentNumbers = [];
+
+  await db.runTransaction(async (transaction) => {
+    const [actorProfile, profile] = await Promise.all([
+      transaction.get(actorRef),
+      transaction.get(userRef)
+    ]);
+    const currentManagerRole = actorProfile.exists ? actorProfile.data().role : "";
+    if (!["admin", "superadmin"].includes(currentManagerRole)) {
+      throw new HttpsError("permission-denied", "Administrator access is required.");
+    }
+
+    const profileData = profile.exists ? profile.data() : null;
+    const targetRole = profileData?.role || "student";
+    if (currentManagerRole !== "superadmin" &&
+        ["admin", "superadmin"].includes(targetRole)) {
+      throw new HttpsError("permission-denied", "Only a superadmin can delete admin or superadmin accounts.");
+    }
+
+    if (targetRole === "superadmin") {
+      const superadmins = await transaction.get(
+        db.collection("users").where("role", "==", "superadmin")
+      );
+      if (superadmins.size <= 1) {
+        throw new HttpsError("failed-precondition", "The last superadmin account cannot be deleted.");
+      }
+    }
+
+    const numberRecords = await transaction.get(
+      db.collection("studentNumbers").where("userId", "==", targetId)
+    );
+
+    if (profile.exists) {
+      deletedProfile = profileData;
+      transaction.delete(userRef);
+    }
+    deletedStudentNumbers = numberRecords.docs.map((numberRecord) => ({
+      number: numberRecord.id,
+      data: numberRecord.data()
+    }));
+    numberRecords.docs.forEach((numberRecord) => transaction.delete(numberRecord.ref));
+  });
+
+  try {
+    await getAuth().deleteUser(targetId);
+  } catch (error) {
+    try {
+      await db.runTransaction(async (transaction) => {
+        if (deletedProfile) transaction.set(userRef, deletedProfile);
+        deletedStudentNumbers.forEach(({ number, data }) => {
+          transaction.set(db.collection("studentNumbers").doc(number), data);
+        });
+      });
+    } catch (rollbackError) {
+      console.error("Could not restore account data after account deletion failed:", rollbackError);
+      throw new HttpsError("internal", "Account deletion failed and profile data could not be restored. Contact support.");
+    }
+    throw getAuthAdminError(error, "delete Firebase Authentication accounts");
+  }
+
+  return { userId: targetId };
 });

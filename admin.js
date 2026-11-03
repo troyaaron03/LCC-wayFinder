@@ -4,7 +4,6 @@ import { defaultRoomCoordinates } from "./campus-locations.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCDuxFyTm3pYIsrO5i5ivTKZyM4SZYnpqM",
@@ -19,16 +18,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const functions = getFunctions(app);
-const listUserAccountsCall = httpsCallable(functions, "listUserAccounts");
-const setUserAccountRoleCall = httpsCallable(functions, "setUserAccountRole");
 
 const $ = (id) => document.getElementById(id);
 const modal = $("modal");
 const form = $("form");
 const title = $("title");
-let managerRole = "";
-let userPageToken = null;
 let currentUserAccounts = [];
 
 onAuthStateChanged(auth, async (user) => {
@@ -44,16 +38,14 @@ onAuthStateChanged(auth, async (user) => {
       location.href = "index.html";
       return;
     }
-    managerRole = profile.data().role;
-    $("users").querySelector("p").textContent = managerRole === "superadmin"
-      ? "Manage registered accounts and assign roles."
-      : "Manage student, visitor, and faculty accounts. Only superadmins can assign admin or superadmin access.";
+    $("users").querySelector("p").textContent =
+      "View account profiles saved in Firestore. This page does not change roles or delete accounts.";
     loadFaculty();
     loadRooms();
     loadQrCodes();
     loadFeedback();
     loadTransactions();
-    loadUserAccounts(true);
+    loadUserAccounts();
   } catch (error) {
     console.error(error);
     alert("Could not verify your admin profile. Check your Firestore rules.");
@@ -67,8 +59,7 @@ $("addRoom").onclick = () => room();
 $("addQrCode").onclick = () => qrCode();
 $("refreshFeedback").onclick = () => loadFeedback();
 $("refreshTransactions").onclick = () => loadTransactions();
-$("refreshUsers").onclick = () => loadUserAccounts(true);
-$("loadMoreUsers").onclick = () => loadUserAccounts(false);
+$("refreshUsers").onclick = () => loadUserAccounts();
 
 document.querySelectorAll(".admin-nav button").forEach((button) => {
   button.onclick = () => {
@@ -87,55 +78,29 @@ function showTab(tabId) {
   });
 }
 
-async function loadUserAccounts(reset) {
+async function loadUserAccounts() {
   const list = $("userList");
-  const loadMore = $("loadMoreUsers");
-  if (reset) {
-    userPageToken = null;
-    currentUserAccounts = [];
-    $("userListNotice").hidden = true;
-    list.innerHTML = '<p class="empty-state">Loading registered accounts…</p>';
-  }
+  list.innerHTML = '<p class="empty-state">Loading account profiles…</p>';
   $("refreshUsers").disabled = true;
-  loadMore.disabled = true;
   try {
-    const { data } = await listUserAccountsCall({ pageToken: userPageToken });
-    currentUserAccounts = currentUserAccounts.concat(data.accounts || []);
-    userPageToken = data.nextPageToken || null;
+    const profiles = await getDocs(collection(db, "users"));
+    currentUserAccounts = profiles.docs.map((profile) => {
+      const data = profile.data();
+      return {
+        uid: profile.id,
+        email: data.email || "",
+        role: ["student", "visitor", "faculty", "admin", "superadmin"].includes(data.role)
+          ? data.role
+          : "student",
+        studentNumber: data.studentNumber || ""
+      };
+    });
     renderUserAccounts();
-    loadMore.hidden = !userPageToken;
   } catch (error) {
-    console.error("Could not load user accounts:", error);
-    if (!reset || userPageToken) {
-      $("userListNotice").textContent = "Could not load the next page of Firebase Authentication accounts. Showing accounts loaded so far.";
-      $("userListNotice").hidden = false;
-      loadMore.hidden = true;
-      return;
-    }
-
-    try {
-      const profiles = await getDocs(collection(db, "users"));
-      currentUserAccounts = profiles.docs.map((profile) => {
-        const data = profile.data();
-        return {
-          uid: profile.id,
-          email: data.email || "",
-          role: ["student", "visitor", "faculty", "admin", "superadmin"].includes(data.role) ? data.role : "student",
-          studentNumber: data.studentNumber || ""
-        };
-      });
-      renderUserAccounts();
-      $("userListNotice").textContent = "Firebase Authentication account listing is unavailable. Showing accounts with Firestore profiles only; accounts without a profile may be missing. Deploy the latest Cloud Functions and ensure their runtime service account has Firebase Authentication Admin access.";
-      $("userListNotice").hidden = false;
-      loadMore.hidden = true;
-    } catch (fallbackError) {
-      console.error("Could not load user profiles from Firestore:", fallbackError);
-      list.innerHTML = `<p class="error-text">Could not load accounts from Firebase Authentication or Firestore. Publish the latest Firestore rules and deploy the latest Cloud Functions. ${esc(fallbackError.message)}</p>`;
-      loadMore.hidden = true;
-    }
+    console.error("Could not load account profiles from Firestore:", error);
+    list.innerHTML = `<p class="error-text">Could not load account profiles. Check your Firestore rules and try refreshing. ${esc(error.message)}</p>`;
   } finally {
     $("refreshUsers").disabled = false;
-    loadMore.disabled = false;
   }
 }
 
@@ -146,56 +111,15 @@ function renderUserAccounts() {
     return;
   }
 
-  const currentUid = auth.currentUser?.uid;
   list.innerHTML = currentUserAccounts.map((account) => {
-    const fixedRoleForAdmin = managerRole !== "superadmin" &&
-      ["admin", "superadmin"].includes(account.role);
-    const canEdit = account.uid !== currentUid && !fixedRoleForAdmin;
-    const roles = managerRole === "superadmin"
-      ? ["student", "visitor", "faculty", "admin", "superadmin"]
-      : ["student", "visitor", "faculty"];
     return `<article class="card user-account-card">
       <span class="card-kicker">${esc(account.role.toUpperCase())}</span>
       <h3>${esc(account.email || "Email unavailable")}</h3>
       <p><strong>Student number:</strong> ${esc(account.studentNumber || "Not linked")}</p>
       <p class="user-account-id"><strong>Account ID:</strong> ${esc(account.uid)}</p>
-      ${canEdit ? `<form class="user-role-form" data-user-id="${esc(account.uid)}">
-        <label for="role-${esc(account.uid)}">Account role</label>
-        <div class="user-role-controls">
-          <select id="role-${esc(account.uid)}" name="role">
-            ${roles.map((role) => `<option value="${role}" ${role === account.role ? "selected" : ""}>${role}</option>`).join("")}
-          </select>
-          <button type="submit">Save role</button>
-        </div>
-        <p class="user-role-message" role="status" aria-live="polite"></p>
-      </form>` : `<p class="user-role-protection">${account.uid === currentUid ? "Your own role cannot be changed here." : "Only a superadmin can change this elevated role."}</p>`}
+      <p class="user-account-readonly">View only. Role changes and account deletion are not available here.</p>
     </article>`;
   }).join("");
-
-  list.querySelectorAll(".user-role-form").forEach((roleForm) => {
-    roleForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const userId = roleForm.dataset.userId;
-      const role = roleForm.elements.role.value;
-      const button = roleForm.querySelector("button");
-      const message = roleForm.querySelector(".user-role-message");
-      button.disabled = true;
-      message.textContent = "Saving role…";
-      try {
-        await setUserAccountRoleCall({ userId, role });
-        message.textContent = "Role updated.";
-        await loadUserAccounts(true);
-      } catch (error) {
-        console.error("Could not update account role:", error);
-        message.textContent = error.code === "functions/permission-denied"
-          ? "Your role cannot assign that account role."
-          : error.code === "functions/failed-precondition"
-            ? error.message
-            : "Could not update this account. Check deployment and try again.";
-        button.disabled = false;
-      }
-    });
-  });
 }
 
 document.querySelectorAll("[data-quick-action]").forEach((button) => {

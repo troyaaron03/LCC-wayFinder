@@ -67,10 +67,9 @@
         <div id="transactionList" class="cards"><p class="empty-state">Destination visits will appear here.</p></div>
       </section>
       <section id="users">
-        <div class="head"><div><span class="eyebrow">ACCESS CONTROL</span><h1>User accounts</h1><p>Manage registered accounts. Only superadmins can assign admin or superadmin access.</p></div><button id="refreshUsers" class="secondary-button" type="button">Refresh accounts</button></div>
-        <p id="userListNotice" class="user-list-notice" role="status" hidden></p>
+        <div class="head"><div><span class="eyebrow">ACCESS CONTROL</span><h1>User accounts</h1><p>View account profiles saved in Firestore.</p></div><button id="refreshUsers" class="secondary-button" type="button">Refresh accounts</button></div>
+        <p id="userListNotice" class="user-list-info" role="status">Showing Firestore account profiles only. Firebase Authentication accounts without a Firestore profile are not listed.</p>
         <div id="userList" class="cards"><p class="empty-state">Registered accounts will appear here.</p></div>
-        <button id="loadMoreUsers" class="secondary-button load-more-users" type="button" hidden>Load more accounts</button>
       </section>
     </main>
   </div>
