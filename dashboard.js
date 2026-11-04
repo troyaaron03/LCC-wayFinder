@@ -670,7 +670,7 @@ function renderRooms() {
     const distance = currentPosition && coords ? distanceInMeters(currentPosition, coords) : null;
     const direction = coords ? directionsUrl(coords, currentPosition) : safeHttpUrl(room.mapLink);
     return `<article class="card">
-      ${image ? `<img class="card-image" src="${esc(image)}" alt="Floor plan for room ${esc(room.roomNumber || "")}">` : '<div class="card-art campus-art" role="img" aria-label="La Concepcion College campus"></div>'}
+      ${image ? `<img class="card-image" src="${esc(image)}" alt="Floor plan for room ${esc(room.roomNumber || "")}">` : '<div class="card-art campus-art" role="img" aria-label="Campus building"></div>'}
       <div class="card-content"><span class="card-kicker">${esc(room.building || "CAMPUS")} ${room.floor ? `· ${esc(room.floor)}` : ""}</span>
       <h3>${esc(placeTitle(room))}</h3>
       <p>${esc(room.description || room.roomType || "Campus room")}</p>

@@ -17,7 +17,7 @@ FIREBASE SETUP
    If the admin page reports "Missing or insufficient permissions", make sure
    the latest rules are deployed to the same Firebase project used by the app.
    The admin dashboard lists destination visits and feedback in PDF-ready
-   reports with the La Concepcion College logo and Campus Wayfinder name.
+   reports branded with the Campus Wayfinder name.
    Use Export PDF and choose Save as PDF in the browser print dialog.
    Feedback is sorted from highest to lowest star rating. Visit records use
    the saved student/account identifier (usually email) when no name is stored.
@@ -62,8 +62,8 @@ connection is needed. The browser-based Tailwind build is convenient for this
 static prototype; use a compiled Tailwind build before production deployment.
 
 BRANDING ASSETS
-Keep assets/campus-logo.jpg and assets/campus-building.jpg in place when
-deploying. The full college logo appears in the app header; the campus photo is
+Keep assets/wayfinder-mark.svg and assets/campus-building.jpg in place when
+deploying. The Wayfinder mark is used in the app header; the campus photo is
 used on room cards that do not have their own image.
 
 ROOMS AND GPS DIRECTIONS
